@@ -1,3 +1,4 @@
+import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import {
@@ -11,7 +12,7 @@ import {
 } from '../supabase/crawl-runs';
 import type { CrawlRunSourceRow } from '../supabase/crawl-run-rows';
 import type { Json } from '../supabase/database.types';
-import { upsertListing } from '../supabase/listings';
+import { recordObservedListing } from '../supabase/listings';
 import { listingFromExtraction } from './extraction';
 import { finishCrawlRunIfDone } from './refresh';
 
@@ -22,18 +23,25 @@ const FirecrawlEventSchema = z.object({
   type: z.string(),
   id: z.string(),
   data: z.array(z.unknown()).default([]),
-  metadata: z.object({ crawlRunSourceId: z.string().min(1) }),
+  metadata: z.object({ crawlRunSourceId: z.uuid() }),
   error: z.string().nullish(),
 });
 
 const FirecrawlPagesSchema = z.array(
   z
     .object({
-      json: z.unknown(),
+      json: z.unknown().optional(),
       metadata: z.object({ sourceURL: z.string().optional(), url: z.string().optional() }),
     })
-    .transform(({ json, metadata }) => ({ json, pageUrl: metadata.sourceURL ?? metadata.url }))
-    .pipe(z.object({ json: z.unknown(), pageUrl: z.string().min(1) })),
+    .transform(({ json, metadata }, context) => {
+      const pageUrl = metadata.sourceURL || metadata.url;
+      if (!pageUrl) {
+        context.addIssue({ code: 'custom', message: 'The page has no URL.' });
+        return z.NEVER;
+      }
+
+      return { json, pageUrl };
+    }),
 );
 
 type FirecrawlPage = z.infer<typeof FirecrawlPagesSchema>[number];
@@ -43,13 +51,12 @@ type FirecrawlPage = z.infer<typeof FirecrawlPagesSchema>[number];
 function hasValidSignature(rawBody: string, signature: string | null): boolean {
   const secret = process.env.FIRECRAWL_WEBHOOK_SECRET;
   const [algorithm, hash] = signature?.split('=') ?? [];
-  if (!secret || algorithm !== 'sha256' || !hash) {
+  if (!secret || algorithm !== 'sha256' || !hash || !/^[0-9a-f]{64}$/i.test(hash)) {
     return false;
   }
 
   const expected = createHmac('sha256', secret).update(rawBody).digest();
-  const received = Buffer.from(hash, 'hex');
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  return timingSafeEqual(Buffer.from(hash, 'hex'), expected);
 }
 
 export async function processFirecrawlEvent(
@@ -111,7 +118,7 @@ async function processPage(
     crawlRunSourceId: runSource.id,
     pageUrl,
     fetchedAt,
-    rawExtraction: (json ?? null) as Json,
+    rawExtraction: (json ?? {}) as Json,
     normalized: listing as Json | null,
     evidence: null,
   });
@@ -133,16 +140,9 @@ async function processPage(
     return 'processed';
   }
 
-  const result = await upsertListing(listing, runSource.source_id, observationId);
-  await incrementCrawlRunSourceCounts(runSource.id, {
-    discovered: 1,
-    processed: 1,
-    newListings: result.wasInserted ? 1 : 0,
-    updatedListings: result.wasInserted ? 0 : 1,
-    rentChanges: result.rentChanged ? 1 : 0,
-  });
+  const result = await recordObservedListing(listing, runSource.source_id, observationId, runSource.id);
 
-  return 'processed';
+  return result ? 'processed' : 'duplicate';
 }
 
 async function finishSource(

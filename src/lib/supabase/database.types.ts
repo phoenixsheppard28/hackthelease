@@ -304,6 +304,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_observed_listing: {
+        Args: {
+          p_crawl_run_source_id: string
+          p_listing: Json
+          p_observation_id: string
+        }
+        Returns: {
+          listing_id: string
+          rent_changed: boolean
+          was_inserted: boolean
+        }[]
+      }
       upsert_listing: {
         Args: { p_listing: Json; p_observation_id?: string }
         Returns: {

@@ -69,3 +69,32 @@ export async function saveListingEmbedding(
     throw error;
   }
 }
+
+/** Upserts and counts the listing in one transaction. Returns null when another delivery already did. */
+export async function recordObservedListing(
+  listing: ListingInput,
+  sourceId: string,
+  observationId: string,
+  crawlRunSourceId: string,
+): Promise<ListingUpsertResult | null> {
+  const { data, error } = await supabaseAdmin()
+    .rpc('record_observed_listing', {
+      p_listing: listingToRow(listing, sourceId),
+      p_observation_id: observationId,
+      p_crawl_run_source_id: crawlRunSourceId,
+    })
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    listingId: data.listing_id,
+    wasInserted: data.was_inserted,
+    rentChanged: data.rent_changed,
+  };
+}

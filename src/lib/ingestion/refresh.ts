@@ -34,13 +34,12 @@ export async function startRefresh(sourceIds?: string[]): Promise<string> {
   await Promise.all(timedOutRunIds.map(finishCrawlRunIfDone));
 
   const run = await createCrawlRun(sources.map((source) => source.id));
-  const startedAt = new Date().toISOString();
-  await updateCrawlRun(run.runId, { status: 'running', started_at: startedAt });
+  await updateCrawlRun(run.runId, { status: 'running', started_at: new Date().toISOString() });
 
   await Promise.all(
     run.sources.map(async ({ crawlRunSourceId, sourceId }) => {
       const source = sources.find(({ id }) => id === sourceId)!;
-      await updateCrawlRunSource(crawlRunSourceId, { status: 'running', started_at: startedAt });
+      await updateCrawlRunSource(crawlRunSourceId, { status: 'running' });
 
       try {
         const jobId = await startCrawl(source, crawlRunSourceId);

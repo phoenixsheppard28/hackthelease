@@ -10,7 +10,7 @@ vi.mock('../supabase/crawl-runs');
 vi.mock('../supabase/listings');
 
 const secret = 'test-webhook-secret';
-const runSourceId = 'run-source-1';
+const runSourceId = '6f1c2b8e-4a0d-4c47-9a53-0d6c1f2e7b10';
 
 const runSourceRow = {
   id: runSourceId,
@@ -75,7 +75,7 @@ beforeEach(() => {
   vi.stubEnv('FIRECRAWL_WEBHOOK_SECRET', secret);
   vi.mocked(crawlRuns.getCrawlRunSource).mockResolvedValue(runSourceRow);
   vi.mocked(crawlRuns.getCrawlRunStatus).mockResolvedValue(null);
-  vi.mocked(listings.upsertListing).mockResolvedValue({
+  vi.mocked(listings.recordObservedListing).mockResolvedValue({
     listingId: 'listing-1',
     wasInserted: true,
     rentChanged: false,
@@ -111,6 +111,28 @@ describe('processFirecrawlEvent signature check', () => {
   });
 });
 
+describe('processFirecrawlEvent input checks', () => {
+  it('rejects a valid signature with extra non-hex characters', async () => {
+    const body = eventOfType('crawl.completed');
+
+    expect(await processFirecrawlEvent(body, `${sign(body)}zz`)).toEqual({ status: 'unauthorized' });
+    expect(crawlRuns.getCrawlRunSource).not.toHaveBeenCalled();
+  });
+
+  it('rejects a run source id that is not a uuid without a database call', async () => {
+    const body = JSON.stringify({
+      success: true,
+      type: 'crawl.completed',
+      id: 'job-1',
+      data: [],
+      metadata: { crawlRunSourceId: 'not-a-uuid' },
+    });
+
+    expect(await processFirecrawlEvent(body, sign(body))).toEqual({ status: 'invalid' });
+    expect(crawlRuns.getCrawlRunSource).not.toHaveBeenCalled();
+  });
+});
+
 describe('processFirecrawlEvent page events', () => {
   it('stores the observation, upserts the listing with the source id, and counts once', async () => {
     vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
@@ -119,7 +141,7 @@ describe('processFirecrawlEvent page events', () => {
     const result = await processFirecrawlEvent(body, sign(body));
 
     expect(result).toEqual({ status: 'processed' });
-    expect(listings.upsertListing).toHaveBeenCalledWith(
+    expect(listings.recordObservedListing).toHaveBeenCalledWith(
       expect.objectContaining({
         address: extractedListing.address,
         unit: 'Apt 2B',
@@ -127,14 +149,47 @@ describe('processFirecrawlEvent page events', () => {
       }),
       'source-1',
       'observation-1',
+      runSourceId,
     );
-    expect(crawlRuns.incrementCrawlRunSourceCounts).toHaveBeenCalledTimes(1);
+    expect(crawlRuns.incrementCrawlRunSourceCounts).not.toHaveBeenCalled();
+  });
+
+  it('reports a duplicate when a concurrent delivery already claimed the observation', async () => {
+    vi.mocked(crawlRuns.storeObservation).mockResolvedValue(null);
+    vi.mocked(crawlRuns.findObservation).mockResolvedValue({
+      id: 'observation-1',
+      listing_id: null,
+      normalized: { address: extractedListing.address },
+    });
+    vi.mocked(listings.recordObservedListing).mockResolvedValue(null);
+    const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });
+
+    const result = await processFirecrawlEvent(body, sign(body));
+
+    expect(result).toEqual({ status: 'duplicate' });
+    expect(crawlRuns.incrementCrawlRunSourceCounts).not.toHaveBeenCalled();
+  });
+
+  it('stores a page without json as a failed page with a non-null raw extraction', async () => {
+    vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
+    const body = JSON.stringify({
+      success: true,
+      type: 'crawl.page',
+      id: 'job-1',
+      data: [{ metadata: { url: 'https://example.com/a' } }],
+      metadata: { crawlRunSourceId: runSourceId },
+    });
+
+    const result = await processFirecrawlEvent(body, sign(body));
+
+    expect(result).toEqual({ status: 'processed' });
+    expect(crawlRuns.storeObservation).toHaveBeenCalledWith(
+      expect.objectContaining({ rawExtraction: {}, normalized: null }),
+    );
     expect(crawlRuns.incrementCrawlRunSourceCounts).toHaveBeenCalledWith(runSourceId, {
       discovered: 1,
       processed: 1,
-      newListings: 1,
-      updatedListings: 0,
-      rentChanges: 0,
+      failedPages: 1,
     });
   });
 
@@ -150,7 +205,7 @@ describe('processFirecrawlEvent page events', () => {
     const result = await processFirecrawlEvent(body, sign(body));
 
     expect(result).toEqual({ status: 'duplicate' });
-    expect(listings.upsertListing).not.toHaveBeenCalled();
+    expect(listings.recordObservedListing).not.toHaveBeenCalled();
     expect(crawlRuns.incrementCrawlRunSourceCounts).not.toHaveBeenCalled();
   });
 
@@ -166,12 +221,12 @@ describe('processFirecrawlEvent page events', () => {
     const result = await processFirecrawlEvent(body, sign(body));
 
     expect(result).toEqual({ status: 'processed' });
-    expect(listings.upsertListing).toHaveBeenCalledWith(
+    expect(listings.recordObservedListing).toHaveBeenCalledWith(
       expect.anything(),
       'source-1',
       'observation-1',
+      runSourceId,
     );
-    expect(crawlRuns.incrementCrawlRunSourceCounts).toHaveBeenCalledTimes(1);
   });
 
   it('stores an invalid extraction and counts it as a failed page without an upsert', async () => {
@@ -187,7 +242,7 @@ describe('processFirecrawlEvent page events', () => {
     expect(crawlRuns.storeObservation).toHaveBeenCalledWith(
       expect.objectContaining({ pageUrl: 'https://example.com/a', normalized: null }),
     );
-    expect(listings.upsertListing).not.toHaveBeenCalled();
+    expect(listings.recordObservedListing).not.toHaveBeenCalled();
     expect(crawlRuns.incrementCrawlRunSourceCounts).toHaveBeenCalledWith(runSourceId, {
       discovered: 1,
       processed: 1,
@@ -216,7 +271,7 @@ describe('processFirecrawlEvent page events', () => {
 
     await processFirecrawlEvent(body, sign(body));
 
-    expect(listings.upsertListing).not.toHaveBeenCalled();
+    expect(listings.recordObservedListing).not.toHaveBeenCalled();
     expect(crawlRuns.incrementCrawlRunSourceCounts).toHaveBeenCalledWith(runSourceId, {
       discovered: 1,
       processed: 1,
@@ -240,7 +295,7 @@ describe('processFirecrawlEvent page events', () => {
     await processFirecrawlEvent(unitless, sign(unitless));
 
     const keys = vi
-      .mocked(listings.upsertListing)
+      .mocked(listings.recordObservedListing)
       .mock.calls.map(([listing, sourceId]) => listingMergeKey(listing, sourceId));
     expect(keys[0]).toBe(keys[1]);
     expect(keys[2]).not.toBe(keys[0]);
@@ -260,7 +315,7 @@ describe('processFirecrawlEvent crawl results', () => {
     );
     expect(crawlRuns.deactivateStaleListings).not.toHaveBeenCalled();
     expect(crawlRuns.markSourceRefreshed).not.toHaveBeenCalled();
-    expect(listings.upsertListing).not.toHaveBeenCalled();
+    expect(listings.recordObservedListing).not.toHaveBeenCalled();
   });
 
   it('marks the run source failed when a completed event reports no success', async () => {

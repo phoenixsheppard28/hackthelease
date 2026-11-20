@@ -1,8 +1,9 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import 'server-only';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
-/** Returns null when the request carries a valid Supabase token for an allowed email, else 401 or 403. */
+/** Returns null when the request carries a valid Supabase token for an allowed user, else 401 or 403. */
 export async function refreshAuthorizationError(request: Request): Promise<401 | 403 | null> {
   const jwksUrl = process.env.SUPABASE_JWKS_URL;
   const token = request.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];
@@ -11,20 +12,25 @@ export async function refreshAuthorizationError(request: Request): Promise<401 |
   }
 
   jwks ??= createRemoteJWKSet(new URL(jwksUrl));
-  let email: unknown;
+  let payload: JWTPayload;
   try {
-    const { payload } = await jwtVerify(token, jwks, {
+    ({ payload } = await jwtVerify(token, jwks, {
       issuer: `${process.env.SUPABASE_URL}/auth/v1`,
       audience: 'authenticated',
-    });
-    email = payload.email;
+    }));
   } catch {
     return 401;
   }
 
-  const allowedEmails = (process.env.REFRESH_ALLOWED_EMAILS ?? '')
+  // Authorize on the user id: the email claim can be unconfirmed.
+  const allowedUserIds = (process.env.REFRESH_ALLOWED_USER_IDS ?? '')
     .split(',')
-    .map((allowed) => allowed.trim().toLowerCase())
+    .map((allowed) => allowed.trim())
     .filter(Boolean);
-  return typeof email === 'string' && allowedEmails.includes(email.toLowerCase()) ? null : 403;
+  const isAllowed =
+    payload.role === 'authenticated' &&
+    payload.is_anonymous !== true &&
+    typeof payload.sub === 'string' &&
+    allowedUserIds.includes(payload.sub);
+  return isAllowed ? null : 403;
 }

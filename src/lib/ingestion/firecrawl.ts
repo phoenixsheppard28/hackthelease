@@ -1,3 +1,4 @@
+import 'server-only';
 import type { SourceRow } from '../supabase/crawl-runs';
 import { pageExtractionJsonSchema, pageExtractionPrompt } from './extraction';
 
