@@ -19,8 +19,9 @@ it("counts timed visits across series and one-off events without a 20-visit cuto
   ];
 
   expect(frequentCalendarPlaces(events)).toEqual([
-    { title: "Chemistry", location: "Chem Building", count: 21 },
+    { title: "Chemistry", location: "Chem Building", count: 20 },
     { title: "Lab", location: "Lab Hall", count: 19 },
+    { title: "One-off", location: "Chem Building", count: 1 },
   ]);
 });
 

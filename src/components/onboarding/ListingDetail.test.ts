@@ -55,6 +55,7 @@ describe('personal destinations on a group listing', () => {
     for (const name of profile.hubs) expect(html).toContain(name);
     expect(html).toContain('Chemistry Building');
     expect(html).toContain('14 scheduled visits in your imported schedule');
+    expect(html).toContain('<summary>Show 1 more place</summary>');
     expect(html).toContain('12 min');
     expect(html).toContain('88% match');
     expect(html).toContain('href="/?home=1"');

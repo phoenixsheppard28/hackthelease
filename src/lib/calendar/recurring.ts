@@ -33,7 +33,7 @@ export function analyzeCalendarPlaces(events: CalendarInstance[]) {
     if (!location && !title) { diagnostics.missingLocation++; continue; }
     if (/\b(online|remote|virtual|zoom)\b|meet\.google\.com|teams\.microsoft\.com/i.test(location || title)) { diagnostics.online++; continue; }
 
-    const key = `${location ? 'location' : 'title'}:${(location || title).toLowerCase().replace(/\s+/g, ' ')}`;
+    const key = `${title.toLowerCase().replace(/\s+/g, ' ')}:${location.toLowerCase().replace(/\s+/g, ' ')}`;
     const current = places.get(key);
     places.set(key, current ? { ...current, count: current.count + 1 } : { title: event.summary?.trim() || "Calendar event", location, count: 1 });
   }

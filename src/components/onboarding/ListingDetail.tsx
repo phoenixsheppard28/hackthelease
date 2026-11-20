@@ -109,6 +109,14 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
   const email = home.contact?.email;
   const sourceName = home.sourceUrl ? new URL(home.sourceUrl).hostname.replace(/^www\./, "") : null;
   const date = new Date(home.sourceFetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const placeCards = (items: typeof destinations) => items.map(({ name, label, count, address }) => {
+    const place = personalDestinations.find(item => item.name === name);
+    const limit = profile.walk[name];
+    return <div key={name}><p>{label}</p>
+      {count !== null && <p className={styles.calendarOrigin}>Calendar · {count} scheduled {count === 1 ? 'visit' : 'visits'} in your imported schedule</p>}
+      <DestinationTime origin={home.address} destination={address} place={place} loading={personalListing.isPending} limit={limit} />
+    </div>;
+  });
   return <div className={styles.page}>
     <header className={styles.header}>
       <Link href="/?home=1" className={styles.brand}>HomeWork</Link>
@@ -129,14 +137,8 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           <ListingAmenities key={home.id} features={home.features} />
           <section className={styles.places}><h2>Your places, from here</h2>
             {groupId && <p className={styles.footnote}>Travel times to your chosen and approved Calendar places. These are personal estimates; group scores do not yet include location.</p>}
-            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{destinations.map(({ name, label, count, address }) => {
-              const place = personalDestinations.find(item => item.name === name);
-              const limit = profile.walk[name];
-              return <div key={name}><p>{label}</p>
-                {count !== null && <p className={styles.calendarOrigin}>Calendar · {count} scheduled {count === 1 ? 'visit' : 'visits'} in your imported schedule</p>}
-                <DestinationTime origin={home.address} destination={address} place={place} loading={personalListing.isPending} limit={limit} />
-              </div>;
-            })}</div>
+            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{placeCards(destinations.slice(0, 3))}</div>
+            {destinations.length > 3 && <details className={styles.morePlaces}><summary>Show {destinations.length - 3} more {destinations.length === 4 ? 'place' : 'places'}</summary><div className={styles.placeGrid} aria-busy={personalListing.isPending}>{placeCards(destinations.slice(3))}</div></details>}
             {personalListing.isError && <p role="alert">Couldn’t load walking times. <button onClick={() => personalListing.refetch()}>Retry walking times</button></p>}
             <p className={styles.footnote}>Estimates: Google Maps. Walks over 30 minutes show bus times when available. Bus times depend on current service. Walking routes may not include all sidewalks or pedestrian paths. Allow extra time for building entry, weather, and accessibility needs.</p>
             <TravelTimes key={home.id} origin={home.address} />

@@ -787,7 +787,7 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                     </p>
                   )}
                   <div className={styles.calendarLocations}>
-                    {calendarPlaces.length > 0 && <p className={styles.status}>{calendar.data?.scan ? `Your top ${calendarPlaces.length} places by scheduled visits in the past 30 days.` : "Your saved Calendar places."} Buildings and addresses are filled from event titles and locations. Review them or exclude any you don’t want included.</p>}
+                    {calendarPlaces.length > 0 && <p className={styles.status}>{calendar.data?.scan ? `Your top ${calendarPlaces.length} events by scheduled visits in the past 30 days.` : "Your saved Calendar events."} Event titles identify the entries. Locations provide travel addresses. Review or exclude each entry before continuing.</p>}
                     {calendarPlaces.map((place, index) => (
                       <div key={index} className={styles.calendarPlace}>
                         <p className={styles.status}>{index + 1}. {place.count} scheduled {place.count === 1 ? 'visit' : 'visits'}</p>

@@ -11,13 +11,11 @@ const classifiedSchema = z.object({ places: z.array(z.object({
 export async function classifyPlaces(places: FrequentPlace[]): Promise<CalendarDestination[]> {
   const resolved: CalendarDestination[] = [];
   const unresolved = places.filter(place => {
-    // A specified location wins over a title that mentions a different building.
     const building = calendarBuilding(place.location || place.title);
-    if (building) { resolved.push({ name: building.name, address: building.address, count: place.count }); return false; }
-    // Calendar already supplied the destination. A venue name must not depend on AI or contain a street number.
+    if (building) { resolved.push({ name: place.title === 'Calendar event' ? building.name : place.title, address: building.address, count: place.count }); return false; }
     const location = place.location.trim();
     if (location) {
-      resolved.push({ name: location.slice(0, 100), address: location.slice(0, 200), count: place.count }); return false;
+      resolved.push({ name: place.title === 'Calendar event' ? location.slice(0, 100) : place.title, address: location.slice(0, 200), count: place.count }); return false;
     }
     return true;
   });
@@ -25,11 +23,16 @@ export async function classifyPlaces(places: FrequentPlace[]): Promise<CalendarD
   function combine(inferred: CalendarDestination[] = []) {
     const grouped = new Map<string, CalendarDestination>();
     for (const place of [...resolved, ...inferred]) {
-      const key = place.address.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const key = `${place.name.toLowerCase().replace(/\s+/g, ' ').trim()}:${place.address.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
       const existing = grouped.get(key);
       grouped.set(key, existing ? { ...existing, count: existing.count + place.count } : place);
     }
-    return [...grouped.values()].sort((a, b) => b.count - a.count);
+    const combined = [...grouped.values()].sort((a, b) => b.count - a.count);
+    const nameCounts = new Map<string, number>();
+    for (const place of combined) nameCounts.set(place.name.toLowerCase(), (nameCounts.get(place.name.toLowerCase()) ?? 0) + 1);
+    return combined.map(place => nameCounts.get(place.name.toLowerCase())! > 1
+      ? { ...place, name: `${place.name.slice(0, 70)} (${place.address.slice(0, 25)})` }
+      : place);
   }
   const key = process.env.OPENAI_API_KEY;
   if (!key || !candidates.length) return combine();
@@ -61,7 +64,7 @@ export async function classifyPlaces(places: FrequentPlace[]): Promise<CalendarD
       const building = calendarBuilding(place.name);
       const address = building?.address || place.address.trim().slice(0, 200);
       if (!/^\d+\s+\S/.test(address)) return [];
-      return [{ name: building?.name || place.name.trim().slice(0, 100), address, count: candidate.count }];
+      return [{ name: candidate.title.slice(0, 100), address, count: candidate.count }];
     });
     return combine(classified);
   } catch {

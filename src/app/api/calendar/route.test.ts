@@ -38,7 +38,10 @@ it('imports a building from event titles without asking for an address and skips
     { summary: 'study', start }, { summary: 'coffee chat', start },
   ] })));
   const data = await (await GET(new Request('http://localhost/api/calendar?review=1'))).json();
-  expect(data.places).toEqual([{ name: 'Leinweber Building', address: '2200 Hayward St, Ann Arbor, MI 48109', count: 2 }]);
+  expect(data.places).toEqual([
+    { name: 'Leinweber 2421', address: '2200 Hayward St, Ann Arbor, MI 48109', count: 1 },
+    { name: 'Leinweber 1125', address: '2200 Hayward St, Ann Arbor, MI 48109', count: 1 },
+  ]);
   expect(data.scan.missingLocation).toBe(2);
 });
 
@@ -52,7 +55,7 @@ it('imports and saves climbing practice with a supplied venue while omitting a l
     { summary: 'Coffee chat', location: 'Zoom', start },
   ] })));
   const data = await (await GET(new Request('http://localhost/api/calendar?review=1'))).json();
-  expect(data.places).toEqual([{ name: 'Planet Rock Ann Arbor', address: 'Planet Rock Ann Arbor', count: 1 }]);
+  expect(data.places).toEqual([{ name: 'Climbing Practice', address: 'Planet Rock Ann Arbor', count: 1 }]);
   expect(data.scan).toMatchObject({ missingLocation: 1, online: 1 });
   expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: data.places }).success).toBe(true);
   expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: [{ ...data.places[0], address: ' ' }] }).success).toBe(false);
@@ -94,7 +97,7 @@ it("pages through the past 30 days and expands recurring visits", async () => {
   const response = await GET(new Request("http://localhost:8000/api/calendar?review=1"));
   const data = await response.json();
 
-  expect(data.places).toEqual([{ name: "101 College Ave, Ann Arbor, MI", address: "101 College Ave, Ann Arbor, MI", count: 20 }]);
+  expect(data.places).toEqual([{ name: "Class", address: "101 College Ave, Ann Arbor, MI", count: 20 }]);
   expect(fetchEvents).toHaveBeenCalledTimes(2);
   expect(fetchEvents.mock.calls[1][0]).toContain("pageToken=page-2");
   const query = new URL(fetchEvents.mock.calls[0][0]).searchParams;
@@ -162,7 +165,7 @@ it("reads course calendars on later calendar-list pages, not just primary", asyn
   });
   vi.stubGlobal("fetch", fetchAll);
   const data = await (await GET(new Request("http://localhost/api/calendar?review=1"))).json();
-  expect(data.places).toEqual([{ name: "Leinweber Building", address: "2200 Hayward St, Ann Arbor, MI 48109", count: 2 }]);
+  expect(data.places).toEqual([{ name: "CHEM 130", address: "2200 Hayward St, Ann Arbor, MI 48109", count: 2 }]);
   expect(data.scan).toMatchObject({ calendarsRead: 2, calendarsFailed: 0, eventsRead: 3, missingLocation: 1 });
   expect(fetchAll).toHaveBeenCalledTimes(4);
 });
