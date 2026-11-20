@@ -51,6 +51,47 @@ describe('availability ownership and delivery', () => {
   });
 });
 describe('reply trust and publication', () => {
+  it('marks a signed lease unavailable without calling it a tenant renewal', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    vi.mocked(proposeAvailability).mockResolvedValue({ status: 'unavailable', evidence: 'The lease has already been signed.', matchesUnitAndDates: true, tenantsRenewing: false, leaseSigned: true });
+    await recordReply(inquiry, { ...message, text: 'The lease has already been signed.' });
+    expect(storage).toHaveBeenCalledWith('rpc/apply_listing_availability_reply', '', { method: 'POST', body: JSON.stringify({ p_message_id: message.message_id }) });
+  });
+  it('can classify an older stored reply that predates the new flags', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([{ message_id: message.message_id, expected_sender: true, body: 'Lease signed.', proposal: { status: 'unavailable', evidence: 'Lease signed.', matchesUnitAndDates: true } }]).mockResolvedValue([]);
+    vi.mocked(proposeAvailability).mockResolvedValue({ status: 'unavailable', evidence: 'Lease signed.', matchesUnitAndDates: true, tenantsRenewing: false, leaseSigned: true });
+    await recordReply(inquiry, message);
+    expect(proposeAvailability).toHaveBeenCalledWith(inquiry, 'Lease signed.');
+    expect(storage).toHaveBeenCalledWith('rpc/apply_listing_availability_reply', '', expect.any(Object));
+  });
+  it('updates the listing automatically for a trusted confirmed renewal', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    vi.mocked(proposeAvailability).mockResolvedValue({ status: 'unavailable', evidence: 'Tenants renewed.', matchesUnitAndDates: true, tenantsRenewing: true, leaseSigned: false });
+    await recordReply(inquiry, { ...message, text: 'Tenants renewed.' });
+    expect(storage).toHaveBeenCalledWith('rpc/apply_listing_availability_reply', '', { method: 'POST', body: JSON.stringify({ p_message_id: message.message_id }) });
+  });
+  it('retries a failed flag update from an already stored reply without calling AI again', async () => {
+    vi.mocked(storage).mockResolvedValue([{ message_id: message.message_id, expected_sender: true, proposal: { status: 'unavailable', matchesUnitAndDates: true, tenantsRenewing: true, leaseSigned: false } }]);
+    await recordReply(inquiry, message);
+    expect(proposeAvailability).not.toHaveBeenCalled();
+    expect(storage).toHaveBeenCalledWith('rpc/apply_listing_availability_reply', '', expect.any(Object));
+  });
+  it.each([
+    { isTest: true, matches: true, renewing: true },
+    { isTest: false, matches: false, renewing: true },
+    { isTest: false, matches: true, renewing: false },
+  ])('does not auto-flag test, ambiguous, or non-renewal mail: %o', async ({ isTest, matches, renewing }) => {
+    vi.mocked(storage).mockResolvedValue([]);
+    vi.mocked(proposeAvailability).mockResolvedValue({ status: 'unavailable', evidence: 'Reply.', matchesUnitAndDates: matches, tenantsRenewing: renewing, leaseSigned: false });
+    await recordReply({ ...inquiry, is_test: isTest }, message);
+    expect(vi.mocked(storage).mock.calls.some(call => call[0] === 'rpc/apply_listing_availability_reply')).toBe(false);
+  });
+  it('passes newer availability corrections to the atomic update', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    vi.mocked(proposeAvailability).mockResolvedValue({ status: 'available', evidence: 'Yes, available.', matchesUnitAndDates: true, tenantsRenewing: false, leaseSigned: false });
+    await recordReply(inquiry, message);
+    expect(storage).toHaveBeenCalledWith('rpc/apply_listing_availability_reply', '', expect.any(Object));
+  });
   it('ignores a message for another inbox', async () => { await recordReply(inquiry, { ...message, inbox_id: 'other' }); expect(storage).not.toHaveBeenCalled(); });
   it('deduplicates a repeated webhook before invoking AI', async () => { vi.mocked(storage).mockResolvedValue([{}]); await recordReply(inquiry, message); expect(proposeAvailability).not.toHaveBeenCalled(); expect(storage).toHaveBeenCalledTimes(1); });
   it('stores unexpected senders without AI or publication', async () => {

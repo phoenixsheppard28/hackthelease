@@ -6,7 +6,7 @@ export type ListingInput = Omit<Listing, 'id' | 'isActive'>;
 export type ListingRow = Database['public']['Tables']['listings']['Row'];
 export type ListingWriteRow = Omit<
   ListingRow,
-  'id' | 'embedding' | 'is_active' | 'is_demo' | 'created_at' | 'updated_at'
+  'id' | 'embedding' | 'is_active' | 'is_demo' | 'created_at' | 'updated_at' | 'availability_report'
 >;
 
 const addressAbbreviations: Record<string, string> = {

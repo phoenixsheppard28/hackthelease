@@ -4,6 +4,7 @@ import { rankCatalog } from '../src/lib/matching/catalog-matches.ts';
 import { previewProfile } from '../src/lib/matching/preview-profile.ts';
 import { rentText, rentBasisText } from '../src/lib/contracts/listing-match.ts';
 import type { CatalogListing } from '../src/lib/supabase/listing-catalog.ts';
+import { combineGroupMatches } from '../src/lib/matching/group-ranking.ts';
 
 const profile = { ...previewProfile, budget: 1100 };
 const weights = profile.weights;
@@ -73,4 +74,13 @@ test('semantic score is included only with usable listing and profile vectors', 
   const row = { ...entry(), embedding: [1, 0] };
   const [home] = rankCatalog(profile, { Location: 0, Budget: 0, 'Home fit': 0, Lifestyle: 100 }, [row], [1, 0]).matches;
   assert.equal(home.score, 100);
+});
+
+test('renewal flags reach personal and group listings without changing match scores', () => {
+  const row = entry();
+  row.availabilityReport = { reportedAt: '2026-11-20T12:00:00Z', source: 'landlord_email', status: 'tenants_renewing', leaseStart: '2027-08-01', leaseEnd: '2028-08-01' };
+  const personal = rankCatalog(profile, weights, [row], null);
+  assert.deepEqual(personal.matches[0].availabilityReport, row.availabilityReport);
+  assert.equal(personal.matches[0].score, rankCatalog(profile, weights, [entry()], null).matches[0].score);
+  assert.deepEqual(combineGroupMatches([personal, personal]).matches[0].availabilityReport, row.availabilityReport);
 });

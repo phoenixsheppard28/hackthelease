@@ -4,6 +4,7 @@ import { agentmail, createGroupInbox, mailMessageSchema, safeIncoming, type Mail
 import { inquiryEmail, type Inquiry, type Reply, type Confirmation, type AvailabilityView } from './contracts';
 import { AvailabilityError, canReview, memberGroup, storage } from './storage';
 import { proposeAvailability } from './proposal';
+import { currentListingAvailability, listingAvailabilitySchema } from './listing-status';
 
 type Mailbox = { group_id: string; inbox_id: string; email: string };
 const enc = encodeURIComponent;
@@ -19,13 +20,15 @@ export async function ownedInquiry(userId: string, id: string): Promise<Inquiry>
 
 export async function availabilityView(userId: string, listingId: string): Promise<AvailabilityView> {
   const groupId = await memberGroup(userId);
-  const [inquiries, confirmations, mailboxes] = await Promise.all([
+  const [inquiries, confirmations, mailboxes, listings] = await Promise.all([
     groupId ? storage<Inquiry[]>('availability_inquiries', `group_id=eq.${enc(groupId)}&listing_id=eq.${enc(listingId)}&order=created_at.desc&limit=20`) : [],
     storage<Confirmation[]>('availability_confirmations', `select=id,lease_start,lease_end,status,confirmed_at,expires_at&listing_id=eq.${enc(listingId)}&order=confirmed_at.desc&limit=10`),
     groupId ? storage<Mailbox[]>('group_mailboxes', `group_id=eq.${enc(groupId)}`) : [],
+    storage<{ availability_report: unknown }[]>('listings', `select=availability_report&id=eq.${enc(listingId)}`),
   ]);
   const replies = inquiries.length ? await storage<Reply[]>('availability_replies', `inquiry_id=in.(${inquiries.map(item => item.id).join(',')})&order=received_at.asc`) : [];
-  return { configured: Boolean(process.env.AGENTMAIL_API_KEY), groupId, canReview: canReview(userId), inboxEmail: mailboxes[0]?.email ?? null, inquiries, replies, confirmations };
+  const report = listingAvailabilitySchema.nullable().parse(listings[0]?.availability_report ?? null);
+  return { configured: Boolean(process.env.AGENTMAIL_API_KEY), groupId, canReview: canReview(userId), inboxEmail: mailboxes[0]?.email ?? null, inquiries, replies, confirmations, availabilityReport: currentListingAvailability(report) };
 }
 
 export async function createInquiry(userId: string, input: { listingId: string; leaseStart: string; leaseEnd: string }) {
@@ -74,15 +77,34 @@ export async function sendInquiry(userId: string, id: string) {
   }
 }
 
+async function applyListingStatusReply(inquiry: Inquiry, reply: Reply) {
+  const proposal = reply.proposal;
+  if (inquiry.is_test || !reply.expected_sender || !proposal?.matchesUnitAndDates) return;
+  if (!(proposal.status === 'unavailable' && (proposal.tenantsRenewing || proposal.leaseSigned)) && !['available', 'renewal_undecided'].includes(proposal.status)) return;
+  await storage('rpc/apply_listing_availability_reply', '', { method: 'POST', body: JSON.stringify({ p_message_id: reply.message_id }) });
+}
+
 export async function recordReply(inquiry: Inquiry, message: MailMessage) {
   if (message.inbox_id !== inquiry.inbox_id || message.thread_id !== inquiry.thread_id || !message.labels.includes('received')) return;
   const [existing] = await storage<Reply[]>('availability_replies', `message_id=eq.${enc(message.message_id)}`);
-  if (existing) return;
+  // Retry the idempotent flag update if a previous webhook saved the reply but failed afterward.
+  if (existing) {
+    if (existing.expected_sender && (!existing.proposal || typeof existing.proposal.leaseSigned !== 'boolean' || typeof existing.proposal.tenantsRenewing !== 'boolean')) {
+      const proposal = await proposeAvailability(inquiry, existing.body);
+      if (proposal) {
+        await storage('availability_replies', `message_id=eq.${enc(message.message_id)}`, patch({ proposal }));
+        existing.proposal = proposal;
+      }
+    }
+    await applyListingStatusReply(inquiry, existing);
+    return;
+  }
   const body = (message.extracted_text || message.text || '').slice(0, 64000);
   const expected = safeIncoming(message, inquiry.recipient);
   const proposal = expected && body ? await proposeAvailability(inquiry, body) : null;
   await storage('availability_replies', 'on_conflict=message_id', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
     body: JSON.stringify({ message_id: message.message_id, inquiry_id: inquiry.id, sender: message.from, body: body || 'Email body unavailable. Review the original message in AgentMail.', received_at: message.timestamp, expected_sender: expected, proposal }) });
+  await applyListingStatusReply(inquiry, { message_id: message.message_id, inquiry_id: inquiry.id, sender: message.from, body, received_at: message.timestamp, expected_sender: expected, proposal });
   await storage('availability_inquiries', `id=eq.${inquiry.id}&status=in.(sending,sent,delivery_unknown)`, patch({ status: 'reply_received' }));
 }
 

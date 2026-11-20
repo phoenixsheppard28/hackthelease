@@ -57,7 +57,7 @@ export function rankCatalog(profile: HousingProfile, weights: Weights, catalog: 
       image: entry.images[0] ?? null, images: entry.images, description: listing.description,
       features: [...new Set([...listing.features, ...Object.entries(listing.amenities).filter(([, present]) => present === true).map(([name]) => name)])],
       contact: listing.contact, sourceUrl: listing.sources.map(source => safeSource(source.url)).find(Boolean) ?? null,
-      sourceFetchedAt: entry.refreshedAt, availableFrom: listing.availableFrom, score, components,
+      sourceFetchedAt: entry.refreshedAt, availableFrom: listing.availableFrom, availabilityReport: entry.availabilityReport ?? null, score, components,
       destinations: profile.hubs.map(name => ({ name, minutes: null, distanceMeters: null, status: 'unavailable', checkedAt: null })), reasons, verificationFlags: [...new Set(flags)], firmChecks: result?.firmChecks ?? {},
     });
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { ListingAvailability } from './ListingAvailability';
+
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -143,6 +145,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           <div className={styles.location}><span><Icon name="house" size={19} /></span>{home.area}</div>
           <div className={styles.title}><div><h1>{home.name}</h1><p><strong>{home.score === null ? "Match not scored" : !groupId && locationIncomplete(home, weights) ? `${home.score} · Partial score` : `${home.score}% match`}</strong> <span>for {groupId ? group.data?.group?.name : profile.name}</span></p>{home.scoreCoverage && <p>{home.scoreCoverage.scored} of {home.scoreCoverage.total} member profiles scored</p>}</div><button className={styles.save} aria-label={`${isSaved ? "Unsave" : "Save"} ${home.name}`} aria-pressed={isSaved} disabled={Boolean(groupId && (groupSaves.isPending || groupSaves.isError))} onClick={toggleSaved}><Icon name="heart" size={21} /></button></div>
           {(saveError || groupSaves.isError) && <p role="alert">{saveError || "Could not load the group's saved homes."}</p>}
+          <ListingAvailability report={home.availabilityReport} />
           <div className={styles.rent}>{rentText(home)}<span>{rentBasisText(home)}</span></div>
           <p className={styles.budget}>{difference === null ? "Rent comparison unavailable." : difference === 0 ? "At your rent limit, before additional fees." : `${formatMoney(Math.abs(difference))} ${difference > 0 ? "below" : "above"} your per-person rent limit, before additional fees.`}</p>
           {home.rentBasis === "per_unit" && home.perPersonRent && <p className={styles.footnote}>Estimated share: {formatMoney(home.perPersonRent.min)}{home.perPersonRent.max !== home.perPersonRent.min ? `–${formatMoney(home.perPersonRent.max)}` : ""} / person, split equally across {householdCount}. Confirm permitted occupancy and fees.</p>}

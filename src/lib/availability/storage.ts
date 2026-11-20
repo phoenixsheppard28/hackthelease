@@ -14,6 +14,7 @@ export async function storage<T>(path: string, query = '', init: RequestInit = {
   if (!response.ok) {
     if (response.status === 404) throw new AvailabilityError('Availability setup is pending. Apply the availability database migration.', 503);
     if (response.status === 409) throw new AvailabilityError('An availability inquiry for these dates is already pending.', 409);
+    if (path === 'rpc/apply_listing_availability_reply') throw new AvailabilityError('The reply was saved, but the listing flag could not be updated. Check replies to retry.', 503);
     if (path.startsWith('rpc/')) throw new AvailabilityError('Could not reserve this inquiry. Check for a recent confirmation, a pending inquiry, or the group limit of five emails per day.', 409);
     throw new AvailabilityError('Could not access availability records. Please retry.', 503);
   }

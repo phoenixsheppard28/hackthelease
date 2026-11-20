@@ -1,6 +1,7 @@
 import type { Listing, MatchResult } from "./housing";
 import type { Weights } from "./matching-weights";
 import type { DestinationWalk } from "../travel/types";
+import type { ListingAvailability } from '../availability/listing-status';
 
 export type ListingMatch = {
   id: string;
@@ -23,6 +24,7 @@ export type ListingMatch = {
   sourceUrl: string | null;
   sourceFetchedAt: string;
   availableFrom: string | null;
+  availabilityReport?: ListingAvailability | null;
   score: number | null;
   scoreCoverage?: { scored: number; total: number };
   components: { label: keyof Weights; score: number | null; weight: number }[];

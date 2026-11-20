@@ -1,8 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { ListingSchema, type Listing } from "@/lib/contracts/housing";
+import { currentListingAvailability, listingAvailabilitySchema, type ListingAvailability } from '@/lib/availability/listing-status';
 
-export type CatalogListing = { listing: Listing; isDemo: boolean; embedding: number[] | null; images: string[]; refreshedAt: string };
+export type CatalogListing = { listing: Listing; isDemo: boolean; embedding: number[] | null; images: string[]; refreshedAt: string; availabilityReport?: ListingAvailability | null };
 const rowSchema = z.object({
   id: z.uuid(), address: z.string(), unit: z.string().nullable(),
   rent_min: z.number().nullable(), rent_max: z.number().nullable(), rent_basis: z.enum(["per_person", "per_unit", "unknown"]),
@@ -10,9 +11,10 @@ const rowSchema = z.object({
   amenities: z.record(z.string(), z.boolean().nullable()), features: z.array(z.string()), description: z.string().nullable(),
   contact: z.unknown(), sources: z.unknown(), is_active: z.boolean(), is_demo: z.boolean(), refreshed_at: z.string(),
   embedding: z.string().nullable(),
+  availability_report: listingAvailabilitySchema.nullable(),
   listing_images: z.array(z.object({ storage_path: z.string(), created_at: z.string() })),
 });
-const columns = "id,address,unit,rent_min,rent_max,rent_basis,recurring_fees_monthly,beds,available_from,accessible,amenities,features,description,contact,sources,is_active,is_demo,refreshed_at,embedding,listing_images(storage_path,created_at)";
+const columns = "id,address,unit,rent_min,rent_max,rent_basis,recurring_fees_monthly,beds,available_from,accessible,amenities,features,description,contact,sources,is_active,is_demo,refreshed_at,embedding,availability_report,listing_images(storage_path,created_at)";
 
 // The UI only receives public listing fields. Credentials and vectors stay on the server.
 export async function readListingCatalog(listingId?: string): Promise<CatalogListing[]> {
@@ -43,7 +45,7 @@ export async function readListingCatalog(listingId?: string): Promise<CatalogLis
       const images = [...new Set(row.listing_images.sort((a, b) => a.created_at.localeCompare(b.created_at))
         .filter(image => /^[a-f0-9]{2}\/[a-f0-9]{64}\.(jpg|png|webp|avif|gif)$/.test(image.storage_path))
         .map(image => `${base}/storage/v1/object/public/listing-images/${image.storage_path}`))];
-      listings.push({ listing, isDemo: row.is_demo, embedding, images, refreshedAt: row.refreshed_at });
+      listings.push({ listing, isDemo: row.is_demo, embedding, images, refreshedAt: row.refreshed_at, availabilityReport: currentListingAvailability(row.availability_report) });
     }
     if (rows.length < pageSize || listingId) break;
   }

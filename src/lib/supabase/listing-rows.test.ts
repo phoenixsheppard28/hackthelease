@@ -102,6 +102,7 @@ describe('listingFromRow', () => {
       is_active: true,
       is_demo: true,
       embedding: null,
+      availability_report: null,
       created_at: '2026-11-19T20:00:00+00:00',
       updated_at: '2026-11-19T20:00:00+00:00',
     };

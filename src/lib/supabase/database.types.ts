@@ -210,6 +210,7 @@ export type Database = {
           searchable_text: string
           sources: Json
           text_hash: string
+          availability_report: Json | null
           unit: string | null
           updated_at: string
         }
@@ -238,6 +239,7 @@ export type Database = {
           searchable_text: string
           sources: Json
           text_hash: string
+          availability_report?: Json | null
           unit?: string | null
           updated_at?: string
         }
@@ -266,6 +268,7 @@ export type Database = {
           searchable_text?: string
           sources?: Json
           text_hash?: string
+          availability_report?: Json | null
           unit?: string | null
           updated_at?: string
         }
@@ -312,6 +315,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_listing_availability_reply: {
+        Args: { p_message_id: string }
+        Returns: undefined
+      }
       create_crawl_run: {
         Args: { p_source_ids: string[] }
         Returns: {

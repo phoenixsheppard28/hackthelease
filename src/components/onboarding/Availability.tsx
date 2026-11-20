@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ListingMatchesResponse } from '@/lib/contracts/listing-match';
 import { statusLabels, type AvailabilityView, type Confirmation, type Reply } from '@/lib/availability/contracts';
 import styles from './Availability.module.scss';
 
@@ -25,18 +26,26 @@ function Review({ reply, inquiryId, busy, onConfirm }: { reply: Reply; inquiryId
 }
 
 export function Availability({ listingId }: { listingId: string }) {
+  const client = useQueryClient();
   const [opened, setOpened] = useState(false);
   const [leaseStart, setLeaseStart] = useState('');
   const [leaseEnd, setLeaseEnd] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const view = useQuery<AvailabilityView>({ queryKey: ['availability', listingId], retry: false,
+  const view = useQuery<AvailabilityView>({ queryKey: ['availability', listingId], retry: false, refetchInterval: opened ? 15000 : false,
     queryFn: async ({ signal }) => {
       const response = await fetch(`/api/availability?listingId=${listingId}`, { signal });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not load availability.');
       return data;
     } });
+  useEffect(() => {
+    if (!view.data) return;
+    // Refresh just the flag; do not buy new route/embedding requests for a status change.
+    client.setQueriesData<ListingMatchesResponse>({ predicate: query => ['listing-evidence', 'live-rank', 'live-listing'].includes(String(query.queryKey[0])) }, previous => previous ? {
+      ...previous, matches: previous.matches.map(home => home.id === listingId ? { ...home, availabilityReport: view.data!.availabilityReport } : home),
+    } : previous);
+  }, [client, listingId, view.data]);
   async function perform(action: unknown) {
     if (busy) return;
     setBusy(true); setError('');
@@ -76,7 +85,7 @@ export function Availability({ listingId }: { listingId: string }) {
           {view.data!.replies.filter(reply => reply.inquiry_id === inquiry.id).map(reply => <div className={styles.reply} key={reply.message_id}>
             <p><strong>{reply.sender}</strong> · {new Date(reply.received_at).toLocaleString()}</p><pre>{reply.body}</pre>
             {!reply.expected_sender && <p>Sender needs review. This reply cannot confirm availability.</p>}
-            {reply.proposal && <p className={styles.proposal}>AI suggestion · {statusLabels[reply.proposal.status]}{!reply.proposal.matchesUnitAndDates ? ' · Unit or dates need clarification' : ''}<br />“{reply.proposal.evidence}”<br /><small>Not published. A reviewer must confirm.</small></p>}
+            {reply.proposal && <p className={styles.proposal}>AI suggestion · {statusLabels[reply.proposal.status]}{!reply.proposal.matchesUnitAndDates ? ' · Unit or dates need clarification' : ''}<br />“{reply.proposal.evidence}”<br /><small>{inquiry.is_test ? 'Test reply. Public listing status is unchanged.' : (reply.proposal.tenantsRenewing || reply.proposal.leaseSigned) && reply.proposal.matchesUnitAndDates && reply.expected_sender ? 'Confirmed renewals and signed leases automatically update the listing flag. Older reports expire after 30 days.' : 'A reviewer must confirm other availability changes.'}</small></p>}
             {view.data!.canReview && reply.expected_sender && !inquiry.is_test && <Review reply={reply} inquiryId={inquiry.id} busy={busy} onConfirm={perform} />}
           </div>)}
         </article>)}

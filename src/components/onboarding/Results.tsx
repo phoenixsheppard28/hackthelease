@@ -13,6 +13,7 @@ import { locationIncomplete, reweightMatches, walkingSummary } from "@/lib/match
 import { useListingEvidence } from "./useListingEvidence";
 import { PrioritySliders } from "./PrioritySliders";
 import { Icon } from "./Icon";
+import { ListingAvailability } from './ListingAvailability';
 import { GroupDialog } from "@/components/groups/GroupDialog";
 import { createPriorityEditor, priorityEditorReducer } from './priority-editor';
 import surveyStyles from "./Onboarding.module.scss";
@@ -207,6 +208,7 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
               <UnstyledButton className={styles.favorite} data-saved={favorite} aria-label={`${favorite ? "Unsave" : "Save"} ${home.name}`} aria-pressed={favorite} disabled={Boolean(groupId && (groupSaves.isPending || groupSaves.isError))} onClick={() => toggleSaved(home.id)}><Icon name="heart" size={23} /></UnstyledButton>
             </div>
             <Link className={styles.cardTitle} href={`/listings/${home.id}?profile=${encodeURIComponent(profileId)}`}>{home.name}</Link>
+            <ListingAvailability report={home.availabilityReport} compact />
             <p>{home.area} · {home.beds === null ? "Bedrooms unconfirmed" : `${home.beds} bedrooms`}</p>
             {!groupId && <p className={styles.verification}>{walkingSummary(home, profile.walk)}</p>}
             {home.scoreCoverage && <p>{home.scoreCoverage.scored} of {home.scoreCoverage.total} member profiles scored</p>}
