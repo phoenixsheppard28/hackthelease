@@ -98,6 +98,16 @@ describe('page extraction schema', () => {
     expect(result).toEqual({ kind: 'not_listing' });
   });
 
+  it('skips the Oxford leasing office page', () => {
+    const result = listingFromExtraction(
+      { isListingPage: true, listing: extractedListing },
+      'https://residential.oxfordcompanies.com/apartments/mi/ann-arbor/central-leasing-office/default.aspx',
+      fetchedAt,
+    );
+
+    expect(result).toEqual({ kind: 'not_listing' });
+  });
+
   it('normalizes availability words returned by Firecrawl', () => {
     const availableNow = listingFromExtraction(
       { isListingPage: true, listing: { ...extractedListing, availableFrom: 'now' } }, pageUrl, fetchedAt,

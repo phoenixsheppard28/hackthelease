@@ -57,6 +57,10 @@ export function listingFromExtraction(
     return { kind: 'not_listing' };
   }
 
+  if (/^https?:\/\/residential\.oxfordcompanies\.com\/apartments\/mi\/ann-arbor\/central-leasing-office\//i.test(pageUrl)) {
+    return { kind: 'not_listing' };
+  }
+
   if (!/\bAnn Arbor,\s*MI\b/i.test(page.data.listing.address)) {
     return { kind: 'not_listing' };
   }
