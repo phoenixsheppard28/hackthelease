@@ -17,7 +17,11 @@ it('fetches evidence once across slider changes, detail navigation, and return t
   const evidence = await client.fetchQuery(options);
   for (let value = 0; value <= 100; value++) reweightMatches(evidence.matches, { ...previewProfile.weights, Location: value });
   expect(fetchMock).toHaveBeenCalledTimes(1);
-  const detail = new QueryObserver(client, listingEvidenceOptions(client, 'student-1', previewProfile, data.matches[0].id));
+  const newProfile = { ...previewProfile, weights: { ...previewProfile.weights, Location: 1, Budget: 100 } };
+  expect(listingEvidenceOptions(client, 'student-1', newProfile).queryKey).toEqual(options.queryKey);
+  await client.fetchQuery(listingEvidenceOptions(client, 'student-1', newProfile));
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const detail = new QueryObserver(client, listingEvidenceOptions(client, 'student-1', newProfile, data.matches[0].id));
   const unsubscribe = detail.subscribe(() => {});
   expect(detail.getCurrentResult().data?.matches).toHaveLength(1);
   expect(detail.getCurrentResult().isFetching).toBe(false);

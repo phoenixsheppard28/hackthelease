@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 
 vi.mock('server-only', () => ({}));
+vi.mock('@/lib/supabase/auth', () => ({ currentStudent: vi.fn().mockResolvedValue({ id: 'student-1' }) }));
 
 const url = 'http://localhost/api/travel-times';
 const addresses = {

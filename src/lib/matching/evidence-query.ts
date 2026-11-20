@@ -3,7 +3,10 @@ import type { HousingProfile } from '../contracts/housing-profile';
 import type { ListingMatchesResponse } from '../contracts/listing-match';
 
 export function evidenceKey(profileId: string, profile: HousingProfile, listingId?: string) {
-  return ['listing-evidence', profileId, profile, listingId ?? 'all'] as const;
+  // Weights change presentation, not route/embedding evidence. Reuse the same
+  // snapshot after Apply and on detail navigation to avoid new paid requests.
+  const { weights: _weights, ...evidenceProfile } = profile;
+  return ['listing-evidence', profileId, evidenceProfile, listingId ?? 'all'] as const;
 }
 
 // Ephemeral data for the active browsing flow only. Never persisted to web
@@ -24,7 +27,7 @@ export function listingEvidenceOptions(client: QueryClient, profileId: string, p
     queryFn: async ({ signal }) => {
       const response = await fetch('/api/matches', { method: 'POST', signal, cache: 'no-store',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile, weights: profile.weights, ...(listingId ? { listingId } : {}) }) });
-      if (!response.ok) throw new Error(response.status === 404 ? 'This listing is no longer available.' : 'Could not load matches. Please try again.');
+      if (!response.ok) throw new Error(response.status === 401 ? 'Sign in to load personalized matches.' : response.status === 404 ? 'This listing is no longer available.' : 'Could not load matches. Please try again.');
       return response.json();
     },
   });

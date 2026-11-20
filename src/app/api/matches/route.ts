@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { housingProfileSchema } from "@/lib/contracts/housing-profile";
 import { rankLiveListings } from "@/lib/matching/live-ranking";
 import { weightsSchema } from "@/lib/contracts/matching-weights";
+import { requireStudent } from '@/lib/supabase/require-student';
 
 const schema = z.object({
   profile: housingProfileSchema,
@@ -13,6 +14,8 @@ export const maxDuration = 120;
 const headers = { 'Cache-Control': 'no-store' };
 
 export async function POST(request: Request) {
+  const denied = await requireStudent();
+  if (denied) return denied;
   const text = await request.text();
   if (text.length > 65536) return NextResponse.json({ error: 'Profile is too large.' }, { status: 413, headers });
   let body: unknown;

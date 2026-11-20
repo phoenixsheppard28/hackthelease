@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { matchesHref, type BrowseContext } from "@/lib/matching/browse-context";
 import { formatMoney, rentText, rentBasisText, type ListingMatchesResponse } from "@/lib/contracts/listing-match";
 import { requiredBedrooms } from '@/lib/contracts/housing-profile';
-import { locationIncomplete, reweightMatches } from '@/lib/matching/location-score';
+import { calendarRouteName, locationIncomplete, reweightMatches } from '@/lib/matching/location-score';
 import { walkingStatusText } from '@/lib/travel/types';
 import { useListingEvidence } from './useListingEvidence';
 import { Icon } from "./Icon";
@@ -52,6 +52,10 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
   const listing = groupId ? groupListing : personalListing;
   const home = groupId ? listing.data?.matches[0] : reweightMatches(listing.data?.matches ?? [], weights)[0];
   const personalDestinations = personalListing.data?.matches.find(item => item.id === listingId)?.destinations ?? [];
+  const destinations = [
+    ...profile.hubs.map(name => ({ name, label: name, count: null as number | null })),
+    ...profile.calendarDestinations.map(place => ({ name: calendarRouteName(place.name), label: place.name, count: place.count })),
+  ];
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [failedPhoto, setFailedPhoto] = useState(false);
@@ -102,7 +106,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
   const date = new Date(home.sourceFetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   return <div className={styles.page}>
     <header className={styles.header}>
-      <Link href={back} className={styles.brand}>HomeWork</Link>
+      <Link href="/?home=1" className={styles.brand}>HomeWork</Link>
       <Link href={back} className={styles.search}><Icon name="search" size={19} />Search Ann Arbor homes</Link>
       <Link href="/" className={styles.student} aria-label={`Switch student, currently ${profile.name}`}><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></Link>
     </header>
@@ -119,12 +123,13 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           </div>
           <ListingAmenities key={home.id} features={home.features} />
           <section className={styles.places}><h2>Your places, from here</h2>
-            {groupId && <p className={styles.footnote}>Walking times to the three places in your profile.</p>}
-            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{profile.hubs.map(name => {
+            {groupId && <p className={styles.footnote}>Walking times to your chosen and approved Calendar places. These are personal estimates; group scores do not yet include location.</p>}
+            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{destinations.map(({ name, label, count }) => {
               const place = personalDestinations.find(item => item.name === name);
               const limit = profile.walk[name];
               const available = place?.status === 'ok' && place.minutes !== null;
-              return <div key={name}><p>{name}</p>
+              return <div key={name}><p>{label}</p>
+                {count !== null && <p className={styles.calendarOrigin}>Calendar · {count} scheduled {count === 1 ? 'visit' : 'visits'} in 120 days</p>}
                 <strong>{available ? `${place.minutes} min` : personalListing.isPending ? 'Checking…' : 'Not available'}</strong>
                 <p>{available ? `walk${place.distanceMeters !== null ? ` · ${(place.distanceMeters / 1000).toFixed(1)} km` : ''}` : personalListing.isPending ? 'Finding a walking route' : walkingStatusText(place?.status ?? 'unavailable')}</p>
                 <small>{limit === undefined ? 'No walking limit set' : !available ? `Your preference: ${limit} min` : place.minutes! <= limit ? `Within your ${limit} min preference` : `${place.minutes! - limit} min over your ${limit} min preference`}</small>

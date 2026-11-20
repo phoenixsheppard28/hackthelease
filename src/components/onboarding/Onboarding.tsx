@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   ActionIcon,
   Button,
@@ -67,8 +69,8 @@ function QuestionTitle({
   );
 }
 
-export function Onboarding({ initialProfile, initialGroupOpen = false, initialCalendarReview = false }: { initialProfile?: SavedProfile; initialGroupOpen?: boolean; initialCalendarReview?: boolean }) {
-  const [screen, setScreen] = useState<Screen>(initialProfile ? initialCalendarReview ? "survey" : "edit" : "home");
+export function Onboarding({ initialProfile, initialHome = false, initialGroupOpen = false, initialCalendarReview = false }: { initialProfile?: SavedProfile; initialHome?: boolean; initialGroupOpen?: boolean; initialCalendarReview?: boolean }) {
+  const [screen, setScreen] = useState<Screen>(initialHome ? "home" : initialProfile ? initialCalendarReview ? "survey" : "edit" : "home");
   const [profile, setProfile] = useState<ProfileDraft>(initialProfile?.profile ?? {});
   const [profileId, setProfileId] = useState(initialProfile?.id ?? "");
   const [step, setStep] = useState(initialProfile && initialCalendarReview ? 1 : 0);
@@ -394,16 +396,17 @@ export function Onboarding({ initialProfile, initialGroupOpen = false, initialCa
   return (
     <div className={styles.shell} onKeyDown={keyboard}>
       <header className={styles.header}>
-        <UnstyledButton
-          className={styles.brand}
-          aria-label="Back to profiles"
-          disabled={saveProfile.isPending}
-          onClick={() =>
-            screen !== "home" && navigate(() => setScreen(initialProfile ? "results" : "home"), -1)
-          }
+        <Link
+          href="/?home=1"
+          className={`${styles.brand} ${styles.previewBrand}`}
+          aria-label="HomeWork home"
+          onClick={event => {
+            if (saveProfile.isPending) { event.preventDefault(); return; }
+            navigate(() => setScreen("home"), -1);
+          }}
         >
           HomeWork
-        </UnstyledButton>
+        </Link>
         <ol className={styles.stages} aria-label="Progress">
           {[
             "Create your profile",

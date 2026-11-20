@@ -28,7 +28,10 @@ export function MatchesPage({ profileId, listingId, groupOpen = false }: { profi
     retry: false,
     queryFn: async ({ signal }) => {
       const stored = readBrowseContext(profileId);
-      if (profileId === "demo-preview") return browseContextSchema.parse({ profile: previewProfile, weights: previewProfile.weights });
+      if (profileId === "demo-preview") {
+        const weights = stored?.weights ?? previewProfile.weights;
+        return browseContextSchema.parse({ ...stored, profile: { ...previewProfile, weights }, weights });
+      }
       if (!profileId) throw new Error("Create a profile to see personalized matches.");
       const response = await fetch("/api/profiles", { signal });
       if (!response.ok) throw new Error("Could not load this student. Please try again.");

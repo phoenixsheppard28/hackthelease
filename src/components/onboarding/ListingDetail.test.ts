@@ -31,10 +31,10 @@ function evidence(status: 'ready' | 'loading' | 'error') {
     isPending: status === 'loading', isError: status === 'error', refetch: vi.fn(),
   } as unknown as ReturnType<typeof useListingEvidence>);
 }
-function render() {
+function render(profile = previewProfile) {
   return renderToStaticMarkup(React.createElement(ListingDetail, {
     listingId: home.id, profileId: 'student-1',
-    context: { profile: previewProfile, weights: previewProfile.weights, query: '', homeType: 'All homes', view: 'homes' },
+    context: { profile, weights: profile.weights, query: '', homeType: 'All homes', view: 'homes' },
   }));
 }
 beforeEach(() => {
@@ -47,6 +47,24 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('personal destinations on a group listing', () => {
+  it('shows approved Calendar places and their route evidence beside the manual places', () => {
+    const profile = { ...previewProfile, calendarDestinations: [{ name: 'Chemistry Building', address: '930 N University Ave', count: 14 }] };
+    vi.mocked(useListingEvidence).mockReturnValue({ data: { matches: [{ ...personalHome, destinations: [...personalHome.destinations, { name: 'Calendar · Chemistry Building', status: 'ok', minutes: 12, distanceMeters: 900, checkedAt: null }] }] }, isPending: false, isError: false } as unknown as ReturnType<typeof useListingEvidence>);
+    const html = render(profile);
+    for (const name of profile.hubs) expect(html).toContain(name);
+    expect(html).toContain('Chemistry Building');
+    expect(html).toContain('14 scheduled visits in 120 days');
+    expect(html).toContain('12 min');
+    expect(html).toContain('88% match');
+    expect(html).toContain('href="/?home=1"');
+  });
+
+  it('keeps an approved Calendar destination visible when its route is unavailable', () => {
+    const html = render({ ...previewProfile, calendarDestinations: [{ name: 'Chemistry Building', address: '930 N University Ave', count: 1 }] });
+    expect(html).toContain('Chemistry Building');
+    expect(html).toContain('1 scheduled visit in 120 days');
+    expect(html).toContain('Not available');
+  });
   it('shows all three personal walking estimates while preserving the group score', () => {
     const html = render();
     expect(useListingEvidence).toHaveBeenCalledWith('student-1', previewProfile, home.id, true);

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { estimateTravel } from '../../../lib/travel/estimate';
+import { requireStudent } from '@/lib/supabase/require-student';
 
 const TravelRequestSchema = z.object({
   origin: z.string().trim().min(5).max(200),
@@ -8,6 +9,8 @@ const TravelRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const denied = await requireStudent();
+  if (denied) return denied;
   const body = TravelRequestSchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
     return Response.json({ error: 'Enter valid origin and destination addresses.' }, { status: 400 });

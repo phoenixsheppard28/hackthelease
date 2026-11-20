@@ -32,6 +32,13 @@ it("opens profile editing when requested", async () => {
   expect(page.props.initialProfile).toEqual(saved);
 });
 
+it("opens the housing-search home from the logo even with a saved profile", async () => {
+  const page = await HomePage({ searchParams: Promise.resolve({ home: "1" }) });
+  expect(redirect).not.toHaveBeenCalled();
+  expect(page.props.initialHome).toBe(true);
+  expect(page.props.initialProfile).toEqual(saved);
+});
+
 it("opens Calendar review for a returning student after connection", async () => {
   const page = await HomePage({ searchParams: Promise.resolve({ calendar: "review" }) });
 
