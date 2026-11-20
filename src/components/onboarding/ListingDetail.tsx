@@ -13,6 +13,7 @@ import { useListingEvidence } from './useListingEvidence';
 import { Icon } from "./Icon";
 import { TravelTimes } from "./TravelTimes";
 import { ListingAmenities } from './ListingAmenities';
+import { Availability } from './Availability';
 import styles from "./ListingDetail.module.scss";
 
 export function ListingDetail({ listingId, profileId, context }: { listingId: string; profileId: string; context: BrowseContext }) {
@@ -149,6 +150,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           {home.rentBasis === "per_unit" && home.perPersonRent && <p className={styles.footnote}>Estimated share: {formatMoney(home.perPersonRent.min)}{home.perPersonRent.max !== home.perPersonRent.min ? `–${formatMoney(home.perPersonRent.max)}` : ""} / person, split equally across {householdCount}. Confirm permitted occupancy and fees.</p>}
           <dl className={styles.facts}><div><dt>Bedrooms</dt><dd>{home.beds ?? "Not listed"}</dd></div><div><dt>Your group</dt><dd>{householdCount > 1 ? `You + ${householdCount - 1} roommate${householdCount === 2 ? "" : "s"}` : "Just you"}</dd></div><div><dt>Available from</dt><dd>{home.availableFrom ?? "Not listed"}</dd></div></dl>
           <div className={styles.actions}>
+            {profileId !== 'demo-preview' && <Availability listingId={listingId} />}
             <button className={styles.primary} disabled aria-describedby="simulation-status">Simulate a typical day</button>
             <p id="simulation-status" className={styles.footnote}>Day simulation isn’t connected yet.</p>
             {email ? <a className={styles.secondary} href={`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Inquiry about ${home.name}`)}`}>Email landlord</a> : <button className={styles.secondary} disabled>Email unavailable</button>}

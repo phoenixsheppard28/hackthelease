@@ -47,6 +47,25 @@ The existing `POST /api/rank` endpoint retains the recommendations team’s core
 
 Day simulation is not implemented. Location measures walking only, including for students with cars. Calendar frequency affects Location, but event times and transit do not. Home fit only checks bedroom adequacy. Individual slider changes rerank locally; Done saves priorities for signed-in students. Group rankings refresh after priorities are saved. Personal favorites are browser-local; group favorites are shared through Supabase. Calendar access expires after one hour and requires reconnection. Catalog validation currently fails the whole request on a malformed listing.
 
+## Group availability email
+
+Apply `supabase/migrations/20261120150000_availability_inquiries.sql` in the Supabase SQL editor. It adds private group inbox, inquiry and reply tables, dated public confirmations, and an atomic send reservation. Existing listing availability is not overwritten. These tables are server-only, with RLS enabled and no browser-role access.
+
+Set the following locally and in the deployment environment:
+
+- `AGENTMAIL_API_KEY`: organization-level server key with `inbox_create`, `inbox_read`, `message_send`, and `message_read`. An inbox-scoped key cannot create one inbox per group. Never prefix the variable with `NEXT_PUBLIC_`.
+- `AGENTMAIL_TEST_RECIPIENT`: optional email address you control for testing. When set, every new draft goes to this address, clearly displays it, and cannot publish availability. Removing the variable affects new drafts only.
+- `AVAILABILITY_REVIEWER_USER_IDS`: comma-separated Supabase Auth user UUIDs permitted to publish confirmations. A reviewer must also belong to the inquiry's group. Leave empty to disable publication.
+- `AGENTMAIL_WEBHOOK_SECRET`: the signing secret for the AgentMail webhook described below.
+
+After deploying, create an AgentMail webhook for `message.received` at `https://tryhomework.vercel.app/api/agentmail/webhook`. Copy its signing secret into `AGENTMAIL_WEBHOOK_SECRET` and redeploy. For a localhost-only trial, use **Check replies**; no public tunnel or webhook is required. `OPENAI_API_KEY` enables optional reply classification. Replies still load without it.
+
+On a live listing, choose **Check availability**, enter lease dates, and preview the email. **Send this email** is the only send action. The first send creates the group's inbox. All group members can see that listing's conversation; other groups see only reviewed status and dates. Sending is limited to five new attempts per group per day. A pending inquiry or a fresh confirmation blocks another inquiry for the same listing and exact dates across groups. Duplicate retries use a stable provider idempotency key; after 23 hours an uncertain send must be reconciled rather than resent automatically.
+
+Test with a controlled recipient: preview, explicitly send, reply from that recipient, then **Check replies**. Verify that another member of the same group sees the thread and an unrelated group cannot. Test emails cannot publish confirmations. For a real reply, an allowlisted reviewer checks the sender, unit and dates before publication. AI suggests a status and supporting quote but cannot publish it. Confirmations expire 30 days after the source reply, not 30 days after someone reopens it. Availability is a dated statement from the property contact, not proof that a listing or landlord is legitimate.
+
+This first version has no automated follow-ups, group-wide inbox page, opt-out suppression automation, or automatic resolution of abandoned/uncertain inquiries. Handle opt-outs in AgentMail and do not send further inquiries to those contacts. Pending inquiries require manual reconciliation before reopening a term. Provider inbox quotas still apply; creating a housing group itself does not consume an inbox.
+
 ## Walking routes and location matching
 
 Enable Google **Routes API** with billing and set the server-only `GOOGLE_MAPS_API_KEY` in `.env.local`. No Roads API or database migration is needed. Set a project-wide Google Cloud quota to control costs across server instances; budget alerts alone do not stop spending.

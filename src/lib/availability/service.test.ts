@@ -1,0 +1,77 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('server-only', () => ({}));
+vi.mock('./storage', async importOriginal => ({ ...await importOriginal<typeof import('./storage')>(), storage: vi.fn(), memberGroup: vi.fn(), canReview: vi.fn() }));
+vi.mock('./agentmail', async importOriginal => ({ ...await importOriginal<typeof import('./agentmail')>(), agentmail: vi.fn(), createGroupInbox: vi.fn() }));
+vi.mock('./proposal', () => ({ proposeAvailability: vi.fn() }));
+import { storage, memberGroup, canReview } from './storage';
+import { agentmail, safeIncoming, type MailMessage } from './agentmail';
+import { proposeAvailability } from './proposal';
+import { ownedInquiry, sendInquiry, recordReply, publishConfirmation, createInquiry } from './service';
+import { inquiryEmail, inquiryInput, type Inquiry } from './contracts';
+const inquiry: Inquiry = { id: 'id-1', group_id: 'group-1', listing_id: 'listing-1', requested_by: 'user-1', lease_start: '2027-08-01', lease_end: '2028-08-01', recipient: 'landlord@example.com', subject: 'Availability', body: 'Is unit 1 available?', inbox_id: 'group@example.com', thread_id: 'thread-1', message_id: 'outgoing-1', status: 'draft', attempted_at: null, created_at: new Date().toISOString(), is_test: false };
+const message: MailMessage = { message_id: 'reply-1', inbox_id: inquiry.inbox_id!, thread_id: inquiry.thread_id!, from: 'Landlord <landlord@example.com>', timestamp: new Date().toISOString(), labels: ['received'], text: 'Yes, available.' };
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(memberGroup).mockResolvedValue('group-1'); vi.stubEnv('AGENTMAIL_API_KEY', 'test-key'); vi.stubEnv('AGENTMAIL_TEST_RECIPIENT', ''); });
+afterEach(() => vi.unstubAllEnvs());
+describe('availability ownership and delivery', () => {
+  it('refuses inquiries outside the signed-in group', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    await expect(ownedInquiry('user-2', 'id-1')).rejects.toThrow('not found');
+    expect(storage).toHaveBeenCalledWith('availability_inquiries', 'id=eq.id-1&group_id=eq.group-1');
+  });
+  it('requires membership before accessing correspondence', async () => {
+    vi.mocked(memberGroup).mockResolvedValue(null);
+    await expect(sendInquiry('outsider', 'id-1')).rejects.toThrow('group');
+    expect(storage).not.toHaveBeenCalled(); expect(agentmail).not.toHaveBeenCalled();
+  });
+  it('does not resend already sent mail', async () => {
+    vi.mocked(storage).mockResolvedValue([{ ...inquiry, status: 'sent' }]);
+    await sendInquiry('user-1', inquiry.id);
+    expect(agentmail).not.toHaveBeenCalled();
+  });
+  it('reserves the inquiry before sending with a stable idempotency key', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([inquiry]).mockResolvedValueOnce([{ inbox_id: inquiry.inbox_id }]).mockResolvedValueOnce([]).mockResolvedValueOnce([inquiry]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ ...inquiry, status: 'sent' }]);
+    vi.mocked(agentmail).mockImplementation(async () => {
+      expect(storage).toHaveBeenCalledWith('rpc/claim_availability_inquiry', '', expect.any(Object));
+      return { message_id: 'outgoing-1', thread_id: 'thread-1' } as never;
+    });
+    await sendInquiry('user-1', inquiry.id);
+    expect(agentmail).toHaveBeenCalledWith(expect.stringContaining('/messages/send'), expect.objectContaining({ headers: { 'Idempotency-Key': 'availability-id-1' }, body: JSON.stringify({ to: [inquiry.recipient], subject: inquiry.subject, text: inquiry.body, labels: ['availability-id-1'] }) }));
+  });
+  it('does not contact the provider when the database claim fails', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([inquiry]).mockResolvedValueOnce([{ inbox_id: inquiry.inbox_id }]).mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('pending inquiry'));
+    await expect(sendInquiry('user-1', inquiry.id)).rejects.toThrow('pending');
+    expect(agentmail).not.toHaveBeenCalled();
+  });
+  it('uses the server listing contact and never creates an inbox while drafting', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([]).mockResolvedValueOnce([{ address: '123 Main', unit: '2', contact: { email: 'Landlord@example.com' } }]).mockResolvedValueOnce([inquiry]);
+    await createInquiry('user-1', { listingId: inquiry.listing_id, leaseStart: '2090-08-01', leaseEnd: '2091-08-01' });
+    const payload = JSON.parse(String(vi.mocked(storage).mock.calls[2][2]?.body));
+    expect(payload.recipient).toBe('landlord@example.com'); expect(payload.body).toContain('unit 2');
+    expect(agentmail).not.toHaveBeenCalled();
+  });
+});
+describe('reply trust and publication', () => {
+  it('ignores a message for another inbox', async () => { await recordReply(inquiry, { ...message, inbox_id: 'other' }); expect(storage).not.toHaveBeenCalled(); });
+  it('deduplicates a repeated webhook before invoking AI', async () => { vi.mocked(storage).mockResolvedValue([{}]); await recordReply(inquiry, message); expect(proposeAvailability).not.toHaveBeenCalled(); expect(storage).toHaveBeenCalledTimes(1); });
+  it('stores unexpected senders without AI or publication', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    await recordReply(inquiry, { ...message, from: 'someone@example.com' });
+    expect(proposeAvailability).not.toHaveBeenCalled();
+    expect(storage).toHaveBeenCalledWith('availability_replies', expect.any(String), expect.objectContaining({ body: expect.stringContaining('"expected_sender":false') }));
+    expect(vi.mocked(storage).mock.calls.some(call => call[0] === 'availability_confirmations')).toBe(false);
+  });
+  it.each(['spam', 'blocked', 'unauthenticated'])('rejects flagged mail: %s', label => expect(safeIncoming({ ...message, labels: ['received', label] }, inquiry.recipient)).toBe(false));
+  it('prevents an ordinary group member from publishing', async () => { vi.mocked(canReview).mockReturnValue(false); await expect(publishConfirmation('user', inquiry.id, message.message_id, 'available')).rejects.toThrow('reviewer'); expect(storage).not.toHaveBeenCalled(); });
+  it('prevents test emails from changing public availability', async () => { vi.mocked(canReview).mockReturnValue(true); vi.mocked(storage).mockResolvedValue([{ ...inquiry, is_test: true }]); await expect(publishConfirmation('user', inquiry.id, message.message_id, 'available')).rejects.toThrow('Test messages'); });
+  it('does not refresh an old reply into a new confirmation', async () => {
+    vi.mocked(canReview).mockReturnValue(true); vi.mocked(storage).mockResolvedValueOnce([inquiry]).mockResolvedValueOnce([{ expected_sender: true, received_at: '2000-01-01T00:00:00Z' }]);
+    await expect(publishConfirmation('user', inquiry.id, message.message_id, 'available')).rejects.toThrow('too old');
+  });
+});
+describe('email contract', () => {
+  it('requires a positive lease interval', () => expect(inquiryInput.safeParse({ listingId: '11111111-1111-4111-8111-111111111111', leaseStart: '2027-08-01', leaseEnd: '2027-07-01' }).success).toBe(false));
+  it('includes the specific unit and dates and strips subject newlines', () => {
+    const email = inquiryEmail('123 Main\nStreet', '2', '2027-08-01', '2028-08-01');
+    expect(email.subject).not.toMatch(/[\r\n]/); expect(email.body).toContain('unit 2'); expect(email.body).toContain('2027-08-01 to 2028-08-01');
+  });
+});

@@ -10,6 +10,7 @@ import { demoListings } from '@/lib/fixtures/listings';
 const state = vi.hoisted(() => ({ group: true, home: {} as unknown }));
 vi.mock('./useListingEvidence', () => ({ useListingEvidence: vi.fn() }));
 vi.mock('./TravelTimes', () => ({ TravelTimes: () => null }));
+vi.mock('./Availability', () => ({ Availability: () => null }));
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   useQuery: ({ queryKey }: { queryKey: string[] }) => ({
