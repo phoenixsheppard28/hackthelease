@@ -1,0 +1,16 @@
+.page { min-height: 100vh; background: #f6f4ee; color: #191919; }
+.page header { display: flex; align-items: center; gap: 20px; padding: 20px 5%; background: #fff; border-bottom: 1px solid #ddd; }
+.brand { margin-right: auto; color: inherit; font-weight: 800; text-decoration: none; }
+.page button { border: 1px solid #191919; border-radius: 7px; padding: 9px 14px; background: #191919; color: #fff; font: inherit; cursor: pointer; }
+.page button:disabled { opacity: .5; cursor: wait; }
+.content { width: min(800px, 90%); margin: 50px auto; }
+.content h1 { font-size: clamp(30px, 5vw, 48px); }
+.card { background: #fff; border: 1px solid #d6d1c7; border-radius: 16px; padding: 28px; margin: 22px 0; }
+.card h2 { margin-top: 0; }
+.card ul { padding-left: 22px; }
+.card form { display: grid; gap: 10px; margin: 28px 0; }
+.card form > div { display: flex; gap: 10px; }
+.card input { flex: 1; min-width: 0; padding: 11px; border: 1px solid #777; border-radius: 7px; font: inherit; }
+.card a { color: inherit; font-weight: 700; }
+.page :focus-visible { outline: 3px solid #738f71; outline-offset: 2px; }
+@media (max-width: 600px) { .page header { flex-wrap: wrap; } .card form > div { flex-direction: column; } }

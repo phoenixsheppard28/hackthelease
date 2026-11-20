@@ -23,6 +23,7 @@ export type ListingMatch = {
   sourceFetchedAt: string;
   availableFrom: string | null;
   score: number | null;
+  scoreCoverage?: { scored: number; total: number };
   components: { label: keyof Weights; score: number | null; weight: number }[];
   destinations: { name: string; minutes: number | null }[];
   reasons: string[];

@@ -125,6 +125,10 @@
   max-width: 100%;
   gap: 8px;
 }
+.profileChoices { display: grid; gap: 8px; }
+.editPanel { align-items: flex-start; padding: 48px 0; }
+.editChoices { display: grid; gap: 8px; }
+.editValue { margin-left: auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--survey-description); font-size: 13px; }
 .choice {
   background: var(--survey-choice);
   color: var(--survey-ink);
