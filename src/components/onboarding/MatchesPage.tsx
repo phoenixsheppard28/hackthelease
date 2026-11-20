@@ -29,12 +29,12 @@ export function MatchesPage({ profileId, listingId, groupOpen = false }: { profi
     queryFn: async ({ signal }) => {
       const stored = readBrowseContext(profileId);
       if (profileId === "demo-preview") return browseContextSchema.parse({ profile: previewProfile, weights: previewProfile.weights });
-      if (!profileId) throw new Error("Choose a student to see personalized matches.");
+      if (!profileId) throw new Error("Create a profile to see personalized matches.");
       const response = await fetch("/api/profiles", { signal });
       if (!response.ok) throw new Error("Could not load this student. Please try again.");
       const profiles = savedProfileSchema.array().parse(await response.json());
       const saved = profiles.find(item => item.id === profileId);
-      if (!saved) throw new Error("Choose a student to see personalized matches.");
+      if (!saved) throw new Error("Create a profile to see personalized matches.");
       return browseContextSchema.parse({ ...stored, profile: saved.profile, weights: saved.profile.weights });
     },
   });

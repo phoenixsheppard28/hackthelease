@@ -387,7 +387,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
         </UnstyledButton>
         <ol className={styles.stages} aria-label="Progress">
           {[
-            "Choose a student",
+            "Create your profile",
             "Customize your search",
             "View your matches",
           ].map((label, index) => (
@@ -519,11 +519,11 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
                 ))}
               </div>
               {profiles.isPending && (
-                <p className={styles.status}>Loading students…</p>
+                <p className={styles.status}>Loading profile…</p>
               )}
               {profiles.isError && (
                 <p role="alert" className={styles.status}>
-                  Saved students couldn’t load.
+                  Your profile couldn’t load.
                   <UnstyledButton
                     className={styles.retry}
                     onClick={() => profiles.refetch()}
