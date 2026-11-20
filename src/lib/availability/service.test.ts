@@ -8,7 +8,7 @@ import { storage, memberGroup, canReview } from './storage';
 import { agentmail, safeIncoming, type MailMessage } from './agentmail';
 import { proposeAvailability } from './proposal';
 import { draftFollowup } from './followup';
-import { ownedInquiry, sendInquiry, recordReply, publishConfirmation, createInquiry, sendFollowup } from './service';
+import { ownedInquiry, sendInquiry, recordReply, publishConfirmation, createInquiry, sendFollowup, groupInbox } from './service';
 import { inquiryEmail, inquiryInput, type Inquiry } from './contracts';
 const inquiry: Inquiry = { id: 'id-1', group_id: 'group-1', listing_id: 'listing-1', requested_by: 'user-1', lease_start: '2027-08-01', lease_end: '2028-08-01', recipient: 'landlord@example.com', subject: 'Availability', body: 'Is unit 1 available?', inbox_id: 'group@example.com', thread_id: 'thread-1', message_id: 'outgoing-1', status: 'draft', attempted_at: null, created_at: new Date().toISOString(), is_test: false };
 const message: MailMessage = { message_id: 'reply-1', inbox_id: inquiry.inbox_id!, thread_id: inquiry.thread_id!, from: 'Landlord <landlord@example.com>', timestamp: new Date().toISOString(), labels: ['received'], text: 'Yes, available.' };
@@ -147,5 +147,16 @@ describe('agent follow-up replies', () => {
     vi.mocked(storage).mockResolvedValueOnce([followup]).mockResolvedValueOnce([]);
     await expect(sendFollowup('user-2', 'f-1', 'Edited')).rejects.toThrow('not found');
     expect(agentmail).not.toHaveBeenCalled();
+  });
+});
+
+describe('group inbox', () => {
+  it('pulls replies for sent inquiries when the inbox loads', async () => {
+    const sent = { ...inquiry, status: 'sent' as const };
+    vi.mocked(storage).mockImplementation(async path => (path === 'availability_inquiries' ? [sent] : []) as never);
+    vi.mocked(agentmail).mockResolvedValue({ messages: [] } as never);
+    const inbox = await groupInbox('user-1');
+    expect(agentmail).toHaveBeenCalledWith(`inboxes/${encodeURIComponent(inquiry.inbox_id!)}/threads/thread-1?limit=100`);
+    expect(inbox.threads).toHaveLength(1);
   });
 });

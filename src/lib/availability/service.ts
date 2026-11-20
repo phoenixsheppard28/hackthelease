@@ -161,10 +161,15 @@ export async function groupInbox(userId: string): Promise<GroupInbox> {
   const groupId = await memberGroup(userId);
   if (!groupId) return { configured, groupId: null, inboxEmail: null, threads: [] };
 
-  const [inquiries, mailboxes] = await Promise.all([
-    storage<Inquiry[]>('availability_inquiries', `group_id=eq.${enc(groupId)}&order=created_at.desc&limit=50`),
-    storage<Mailbox[]>('group_mailboxes', `group_id=eq.${enc(groupId)}`),
-  ]);
+  const inquiriesQuery = `group_id=eq.${enc(groupId)}&order=created_at.desc&limit=50`;
+  let inquiries = await storage<Inquiry[]>('availability_inquiries', inquiriesQuery);
+  // Pull replies directly so the inbox works even when the webhook is missing or delayed.
+  const open = inquiries.filter(item => item.inbox_id && ['sent', 'delivery_unknown', 'reply_received'].includes(item.status));
+  if (configured && open.length) {
+    await Promise.allSettled(open.map(item => syncInquiry(userId, item.id)));
+    inquiries = await storage<Inquiry[]>('availability_inquiries', inquiriesQuery);
+  }
+  const mailboxes = await storage<Mailbox[]>('group_mailboxes', `group_id=eq.${enc(groupId)}`);
   const inquiryIds = inquiries.map(item => item.id).join(',');
   const listingIds = [...new Set(inquiries.map(item => item.listing_id))].join(',');
   const [replies, followups, listings] = inquiries.length ? await Promise.all([
