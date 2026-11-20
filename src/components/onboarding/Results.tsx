@@ -133,7 +133,7 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
 
   return <div className={`${surveyStyles.shell} ${styles.browser}`}>
     <header className={styles.header}>
-      <UnstyledButton className={styles.brand} onClick={profileId === "demo-preview" ? onBack : () => setView("homes")}><Icon name="house" size={27} />Homework</UnstyledButton>
+      <UnstyledButton className={styles.brand} onClick={profileId === "demo-preview" ? onBack : () => setView("homes")}><Icon name="house" size={27} />HomeWork</UnstyledButton>
       <nav className={styles.tabs} aria-label="Browse listings">
         <UnstyledButton aria-current={view === "homes" ? "page" : undefined} onClick={() => setView("homes")}>Homes</UnstyledButton>
         <UnstyledButton aria-current={view === "saved" ? "page" : undefined} onClick={() => setView("saved")}>Saved{pricedSavedCount ? ` (${pricedSavedCount})` : ""}</UnstyledButton>

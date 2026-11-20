@@ -383,7 +383,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
             screen !== "home" && navigate(() => setScreen(initialProfile ? "results" : "home"), -1)
           }
         >
-          Homework
+          HomeWork
         </UnstyledButton>
         <ol className={styles.stages} aria-label="Progress">
           {[

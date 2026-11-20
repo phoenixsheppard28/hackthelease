@@ -102,7 +102,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
   const date = new Date(home.sourceFetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   return <div className={styles.page}>
     <header className={styles.header}>
-      <Link href={back} className={styles.brand}>Homework</Link>
+      <Link href={back} className={styles.brand}>HomeWork</Link>
       <Link href={back} className={styles.search}><Icon name="search" size={19} />Search Ann Arbor homes</Link>
       <Link href="/" className={styles.student} aria-label={`Switch student, currently ${profile.name}`}><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></Link>
     </header>

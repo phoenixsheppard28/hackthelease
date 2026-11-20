@@ -1,4 +1,4 @@
-# Homework
+# HomeWork
 
 Next.js App Router, React, TypeScript, Mantine, Sass modules, TanStack Query, Zod, and pnpm, following docs/TECH_STACK.md.
 

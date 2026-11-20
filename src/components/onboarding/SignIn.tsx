@@ -3,7 +3,7 @@ import styles from "./SignIn.module.scss";
 
 export function SignIn({ error = false }: { error?: boolean }) {
   return <main className={styles.shell}>
-    <header className={styles.header}><Link className={styles.brand} href="/">Homework</Link><span>Find your place together</span></header>
+    <header className={styles.header}><Link className={styles.brand} href="/">HomeWork</Link><span>Find your place together</span></header>
     <section className={styles.panel} aria-labelledby="auth-title"><div className={styles.content}>
       <p className={styles.eyebrow}>YOUR HOUSING SEARCH STARTS HERE</p>
       <h1 id="auth-title">Find your place together.</h1>
