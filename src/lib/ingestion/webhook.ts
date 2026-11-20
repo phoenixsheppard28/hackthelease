@@ -12,7 +12,8 @@ import {
 } from '../supabase/crawl-runs';
 import type { CrawlRunSourceRow } from '../supabase/crawl-run-rows';
 import type { Json } from '../supabase/database.types';
-import { recordObservedListing } from '../supabase/listings';
+import { embedMissingListings } from '../embeddings/listings';
+import { listUnembeddedListings, recordObservedListing } from '../supabase/listings';
 import { listingFromExtraction } from './extraction';
 import { finishCrawlRunIfDone } from './refresh';
 
@@ -141,8 +142,21 @@ async function processPage(
   }
 
   const result = await recordObservedListing(listing, runSource.source_id, observationId, runSource.id);
+  if (!result) {
+    return 'duplicate';
+  }
 
-  return result ? 'processed' : 'duplicate';
+  await embedListingSafely(result.listingId);
+
+  return 'processed';
+}
+
+async function embedListingSafely(listingId: string): Promise<void> {
+  try {
+    await embedMissingListings(await listUnembeddedListings([listingId]));
+  } catch (error) {
+    console.error('Listing embedding failed', error);
+  }
 }
 
 async function finishSource(

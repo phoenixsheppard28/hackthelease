@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as embeddings from '../embeddings/listings';
 import * as crawlRuns from '../supabase/crawl-runs';
 import * as listings from '../supabase/listings';
 import { listingMergeKey } from '../supabase/listing-rows';
@@ -8,6 +9,7 @@ import { processFirecrawlEvent } from './webhook';
 vi.mock('server-only', () => ({}));
 vi.mock('../supabase/crawl-runs');
 vi.mock('../supabase/listings');
+vi.mock('../embeddings/listings');
 
 const secret = 'test-webhook-secret';
 const runSourceId = '6f1c2b8e-4a0d-4c47-9a53-0d6c1f2e7b10';
@@ -152,6 +154,32 @@ describe('processFirecrawlEvent page events', () => {
       runSourceId,
     );
     expect(crawlRuns.incrementCrawlRunSourceCounts).not.toHaveBeenCalled();
+  });
+
+  it('embeds the recorded listing when its embedding is missing', async () => {
+    vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
+    const unembedded = [{ listing: {} as never, isDemo: false, searchableText: 'text', textHash: 'hash', embedding: null }];
+    vi.mocked(listings.listUnembeddedListings).mockResolvedValue(unembedded);
+    const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });
+
+    await processFirecrawlEvent(body, sign(body));
+
+    expect(listings.listUnembeddedListings).toHaveBeenCalledWith(['listing-1']);
+    expect(embeddings.embedMissingListings).toHaveBeenCalledWith(unembedded);
+  });
+
+  it('logs an embedding failure and still processes the page', async () => {
+    vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
+    vi.mocked(listings.listUnembeddedListings).mockResolvedValue([]);
+    vi.mocked(embeddings.embedMissingListings).mockRejectedValue(new Error('OpenAI is down'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });
+
+    const result = await processFirecrawlEvent(body, sign(body));
+
+    expect(result).toEqual({ status: 'processed' });
+    expect(consoleError).toHaveBeenCalledWith('Listing embedding failed', expect.any(Error));
+    consoleError.mockRestore();
   });
 
   it('reports a duplicate when a concurrent delivery already claimed the observation', async () => {

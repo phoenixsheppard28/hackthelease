@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Listing } from '../contracts/housing';
-import { listingFromRow, listingToRow, type ListingInput } from './listing-rows';
+import { listingFromRow, listingToRow, type ListingInput, type ListingRow } from './listing-rows';
 import { supabaseAdmin } from './server';
 
 export type StoredListing = {
@@ -17,19 +17,36 @@ export type ListingUpsertResult = {
   rentChanged: boolean;
 };
 
+function storedListingFromRow(row: ListingRow): StoredListing {
+  return {
+    listing: listingFromRow(row),
+    isDemo: row.is_demo,
+    searchableText: row.searchable_text,
+    textHash: row.text_hash,
+    embedding: row.embedding === null ? null : (JSON.parse(row.embedding) as number[]),
+  };
+}
+
 export async function listActiveListings(): Promise<StoredListing[]> {
   const { data, error } = await supabaseAdmin().from('listings').select('*').eq('is_active', true);
   if (error) {
     throw error;
   }
 
-  return data.map((row) => ({
-    listing: listingFromRow(row),
-    isDemo: row.is_demo,
-    searchableText: row.searchable_text,
-    textHash: row.text_hash,
-    embedding: row.embedding === null ? null : (JSON.parse(row.embedding) as number[]),
-  }));
+  return data.map(storedListingFromRow);
+}
+
+export async function listUnembeddedListings(listingIds: string[]): Promise<StoredListing[]> {
+  const { data, error } = await supabaseAdmin()
+    .from('listings')
+    .select('*')
+    .in('id', listingIds)
+    .is('embedding', null);
+  if (error) {
+    throw error;
+  }
+
+  return data.map(storedListingFromRow);
 }
 
 export async function upsertListing(

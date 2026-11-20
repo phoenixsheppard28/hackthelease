@@ -90,6 +90,7 @@ export const MatchResultSchema = z.object({
   sourceUrls: z.array(z.url()).min(1),
   verificationFlags: z.array(z.string()),
   skippedPriorities: z.array(PrioritySchema),
+  isDemo: z.boolean().optional(),
 });
 
 export type MatchResult = z.infer<typeof MatchResultSchema>;
