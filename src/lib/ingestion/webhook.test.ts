@@ -41,7 +41,7 @@ const extractedListing = {
   beds: 2,
   availableFrom: '2027-08-20',
   accessible: null,
-  amenities: { laundry: true },
+  amenities: [{ name: 'laundry', available: true }],
   features: ['Shared kitchen'],
   description: 'Two bedroom near campus.',
   contact: null,

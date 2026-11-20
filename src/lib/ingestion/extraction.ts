@@ -1,12 +1,32 @@
 import { z } from 'zod';
-import { ListingFieldsSchema, ListingSchema } from '../contracts/housing';
+import { RentBasisSchema, ListingSchema } from '../contracts/housing';
 import type { ListingInput } from '../supabase/listing-rows';
+
+// Firecrawl JSON extraction rejects dictionary objects, so amenities arrive as a list.
+// Formats such as email and date are checked by ListingSchema after extraction.
+const ExtractedListingSchema = z.object({
+  address: z.string(),
+  unit: z.string().nullable(),
+  rentMin: z.number().nullable(),
+  rentMax: z.number().nullable(),
+  rentBasis: RentBasisSchema,
+  recurringFeesMonthly: z.number().nullable(),
+  beds: z.number().int().nullable(),
+  availableFrom: z.string().nullable().describe('YYYY-MM-DD'),
+  accessible: z.boolean().nullable(),
+  amenities: z.array(z.object({ name: z.string(), available: z.boolean().nullable() })),
+  features: z.array(z.string()),
+  description: z.string().nullable(),
+  contact: z
+    .object({ name: z.string().nullable(), email: z.string().nullable(), phone: z.string().nullable() })
+    .nullable(),
+});
 
 export const PageExtractionSchema = z.object({
   isListingPage: z
     .boolean()
     .describe('True only when the page describes one rentable home or unit.'),
-  listing: ListingFieldsSchema.omit({ id: true, isActive: true, sources: true }).nullable(),
+  listing: ExtractedListingSchema.nullable(),
 });
 
 export const pageExtractionJsonSchema = z.toJSONSchema(PageExtractionSchema);
@@ -34,8 +54,15 @@ export function listingFromExtraction(
     return { kind: 'not_listing' };
   }
 
+  const { amenities, contact, ...fields } = page.data.listing;
   const listing = ListingSchema.safeParse({
-    ...page.data.listing,
+    ...fields,
+    amenities: Object.fromEntries(amenities.map(({ name, available }) => [name, available])),
+    contact: contact && {
+      name: contact.name || null,
+      email: z.email().safeParse(contact.email).success ? contact.email : null,
+      phone: contact.phone || null,
+    },
     id: pageUrl,
     isActive: true,
     sources: [{ url: pageUrl, fetchedAt }],
