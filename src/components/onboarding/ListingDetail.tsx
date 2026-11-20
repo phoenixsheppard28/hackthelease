@@ -17,6 +17,7 @@ import { Icon } from "./Icon";
 import { TravelTimes } from "./TravelTimes";
 import { ListingAmenities } from './ListingAmenities';
 import { Availability } from './Availability';
+import { DaySimulation } from './DaySimulation';
 import styles from "./ListingDetail.module.scss";
 
 export function ListingDetail({ listingId, profileId, context }: { listingId: string; profileId: string; context: BrowseContext }) {
@@ -152,8 +153,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           <dl className={styles.facts}><div><dt>Bedrooms</dt><dd>{home.beds ?? "Not listed"}</dd></div><div><dt>Your group</dt><dd>{householdCount > 1 ? `You + ${householdCount - 1} roommate${householdCount === 2 ? "" : "s"}` : "Just you"}</dd></div><div><dt>Available from</dt><dd>{home.availableFrom ?? "Not listed"}</dd></div></dl>
           <div className={styles.actions}>
             {profileId !== 'demo-preview' && <Availability listingId={listingId} />}
-            <button className={styles.primary} disabled aria-describedby="simulation-status">Simulate a typical day</button>
-            <p id="simulation-status" className={styles.footnote}>Day simulation isn’t connected yet.</p>
+            {profileId !== 'demo-preview' && <a className={styles.primary} href="#day-simulation">See a day living here ↓</a>}
             {email ? <a className={styles.secondary} href={`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Inquiry about ${home.name}`)}`}>Email landlord</a> : <button className={styles.secondary} disabled>Email unavailable</button>}
             {phone && /\d{7,}/.test(phone) ? <a className={styles.secondary} href={`tel:${phone}`}>Call landlord</a> : <button className={styles.secondary} disabled>Phone unavailable</button>}
             <p className={styles.footnote}>{home.contact?.name || sourceName || "Listing contact"}{home.contact?.phone ? ` · ${home.contact.phone}` : ""}</p>
@@ -165,6 +165,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           {home.description && <section className={styles.description}><h2>About this home</h2><p>{home.description}</p></section>}
         </section>
       </div>
+      {profileId !== 'demo-preview' && <DaySimulation key={home.id} profile={profile} home={{ name: home.name, address: home.address }} walks={personalDestinations} />}
     </main>
   </div>;
 }

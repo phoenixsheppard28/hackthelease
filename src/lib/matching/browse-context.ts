@@ -7,7 +7,7 @@ export const browseContextSchema = z.object({
   weights: weightsSchema,
   query: z.string().default(""),
   homeType: z.enum(["All homes", "Apartment", "House"]).default("All homes"),
-  view: z.enum(["homes", "saved"]).default("homes"),
+  view: z.enum(["homes", "saved", "inbox"]).default("homes"),
 });
 export type BrowseContext = z.infer<typeof browseContextSchema>;
 // Only completed profiles, scoped to the current browser session.

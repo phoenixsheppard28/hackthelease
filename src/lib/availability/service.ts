@@ -1,9 +1,10 @@
 import 'server-only';
 import { z } from 'zod';
 import { agentmail, createGroupInbox, mailMessageSchema, safeIncoming, type MailMessage } from './agentmail';
-import { inquiryEmail, type Inquiry, type Reply, type Confirmation, type AvailabilityView } from './contracts';
+import { inquiryEmail, type Inquiry, type Reply, type Confirmation, type AvailabilityView, type Followup, type GroupInbox } from './contracts';
 import { AvailabilityError, canReview, memberGroup, storage } from './storage';
 import { proposeAvailability } from './proposal';
+import { draftFollowup } from './followup';
 import { currentListingAvailability, listingAvailabilitySchema } from './listing-status';
 
 type Mailbox = { group_id: string; inbox_id: string; email: string };
@@ -106,6 +107,12 @@ export async function recordReply(inquiry: Inquiry, message: MailMessage) {
     body: JSON.stringify({ message_id: message.message_id, inquiry_id: inquiry.id, sender: message.from, body: body || 'Email body unavailable. Review the original message in AgentMail.', received_at: message.timestamp, expected_sender: expected, proposal }) });
   await applyListingStatusReply(inquiry, { message_id: message.message_id, inquiry_id: inquiry.id, sender: message.from, body, received_at: message.timestamp, expected_sender: expected, proposal });
   await storage('availability_inquiries', `id=eq.${inquiry.id}&status=in.(sending,sent,delivery_unknown)`, patch({ status: 'reply_received' }));
+
+  if (!expected || !body) return;
+  const draft = await draftFollowup(inquiry, body, proposal);
+  if (!draft) return;
+  await storage('availability_followups', 'on_conflict=reply_message_id', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+    body: JSON.stringify({ inquiry_id: inquiry.id, reply_message_id: message.message_id, body: draft }) });
 }
 
 export async function syncInquiry(userId: string, id: string) {
@@ -147,4 +154,53 @@ export async function publishConfirmation(userId: string, id: string, messageId:
     confirmed_at: now.toISOString(), expires_at: new Date(expiresAt).toISOString(),
   }) });
   await storage('availability_inquiries', `id=eq.${id}`, patch({ status: 'closed' }));
+}
+
+export async function groupInbox(userId: string): Promise<GroupInbox> {
+  const configured = Boolean(process.env.AGENTMAIL_API_KEY);
+  const groupId = await memberGroup(userId);
+  if (!groupId) return { configured, groupId: null, inboxEmail: null, threads: [] };
+
+  const [inquiries, mailboxes] = await Promise.all([
+    storage<Inquiry[]>('availability_inquiries', `group_id=eq.${enc(groupId)}&order=created_at.desc&limit=50`),
+    storage<Mailbox[]>('group_mailboxes', `group_id=eq.${enc(groupId)}`),
+  ]);
+  const inquiryIds = inquiries.map(item => item.id).join(',');
+  const listingIds = [...new Set(inquiries.map(item => item.listing_id))].join(',');
+  const [replies, followups, listings] = inquiries.length ? await Promise.all([
+    storage<Reply[]>('availability_replies', `inquiry_id=in.(${inquiryIds})&order=received_at.asc`),
+    storage<Followup[]>('availability_followups', `inquiry_id=in.(${inquiryIds})&order=created_at.asc`),
+    storage<{ id: string; address: string; unit: string | null; availability_report: unknown }[]>('listings', `select=id,address,unit,availability_report&id=in.(${listingIds})`),
+  ]) : [[], [], []];
+
+  const threads = inquiries.map(inquiry => {
+    const listing = listings.find(item => item.id === inquiry.listing_id);
+    const report = listingAvailabilitySchema.nullable().safeParse(listing?.availability_report ?? null);
+    return { inquiry,
+      listing: { id: inquiry.listing_id, title: listing ? listing.address + (listing.unit ? `, unit ${listing.unit}` : '') : 'Listing', availabilityReport: report.success ? currentListingAvailability(report.data) : null },
+      replies: replies.filter(reply => reply.inquiry_id === inquiry.id),
+      followups: followups.filter(followup => followup.inquiry_id === inquiry.id) };
+  });
+  return { configured, groupId, inboxEmail: mailboxes[0]?.email ?? null, threads };
+}
+
+export async function sendFollowup(userId: string, followupId: string, body: string) {
+  const [followup] = await storage<Followup[]>('availability_followups', `id=eq.${enc(followupId)}`);
+  if (!followup) throw new AvailabilityError('Reply draft not found.', 404);
+  const inquiry = await ownedInquiry(userId, followup.inquiry_id);
+  if (!inquiry.inbox_id) throw new AvailabilityError('This conversation has no group inbox.');
+
+  const [claimed] = await storage<Followup[]>('availability_followups', `id=eq.${enc(followupId)}&status=eq.draft`, patch({ status: 'sending', body, sent_by: userId }));
+  if (!claimed) return;
+
+  try {
+    const sent = z.object({ message_id: z.string() }).parse(await agentmail(`inboxes/${enc(inquiry.inbox_id)}/messages/${enc(followup.reply_message_id)}/reply`, {
+      method: 'POST', headers: { 'Idempotency-Key': `followup-${followupId}` }, body: JSON.stringify({ text: body, labels: [`availability-${inquiry.id}`] }),
+    }));
+    await storage('availability_followups', `id=eq.${enc(followupId)}`, patch({ status: 'sent', sent_message_id: sent.message_id, sent_at: new Date().toISOString() }));
+  } catch {
+    // The idempotency key makes a retry safe if the provider did send it.
+    await storage('availability_followups', `id=eq.${enc(followupId)}&status=eq.sending`, patch({ status: 'draft' }));
+    throw new AvailabilityError('The reply could not be sent. Please retry.', 503);
+  }
 }

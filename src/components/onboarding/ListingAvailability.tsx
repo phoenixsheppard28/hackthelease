@@ -1,6 +1,8 @@
 import { currentListingAvailability, type ListingAvailability as AvailabilityReport } from '@/lib/availability/listing-status';
 import styles from './ListingAvailability.module.scss';
 
+const labels: Record<string, string> = { lease_signed: 'Not available · Lease signed', tenants_renewing: 'Tenants renewing', available: 'Available · Landlord confirmed' };
+
 export function ListingAvailability({ report, compact = false }: { report?: AvailabilityReport | null; compact?: boolean }) {
   const current = currentListingAvailability(report);
   if (!current) return null;
@@ -8,7 +10,7 @@ export function ListingAvailability({ report, compact = false }: { report?: Avai
   const source = current.source === 'landlord_email' ? 'Landlord email' : 'User reported';
   const term = current.leaseStart && current.leaseEnd ? `${current.leaseStart} to ${current.leaseEnd}` : 'Lease dates not specified';
   return <div className={styles.notice}>
-    <span className={styles.badge} title={`${source} · ${date} · ${term}`}>{current.status === 'lease_signed' ? 'Not available · Lease signed' : 'Tenants renewing'}</span>
+    <span className={styles.badge} data-status={current.status} title={`${source} · ${date} · ${term}`}>{labels[current.status]}</span>
     {!compact && <p>{source} · {date}<br />{term}</p>}
   </div>;
 }

@@ -10,7 +10,7 @@ export const listingAvailabilitySchema = z.object({
 export type ListingAvailability = z.infer<typeof listingAvailabilitySchema>;
 
 export function currentListingAvailability(report: ListingAvailability | null | undefined, now = Date.now()): ListingAvailability | null {
-  if (!report || !['tenants_renewing', 'lease_signed'].includes(report.status) || Date.parse(report.reportedAt) + 30 * 86400000 <= now) return null;
+  if (!report || !['tenants_renewing', 'lease_signed', 'available'].includes(report.status) || Date.parse(report.reportedAt) + 30 * 86400000 <= now) return null;
   if (report.leaseEnd && Date.parse(`${report.leaseEnd}T23:59:59Z`) < now) return null;
   return report;
 }

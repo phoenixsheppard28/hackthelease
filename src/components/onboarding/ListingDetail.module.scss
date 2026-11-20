@@ -23,6 +23,7 @@
 .actions { display: flex; flex-direction: column; gap: 8px; }
 .primary, .secondary, .source { min-height: 42px; width: 100%; border-radius: 6px; border: 1px solid #666; background: #fff; color: #191919; font-size: 15px !important; padding: 9px 12px; text-align: center; }
 .primary { background: #191919; border-color: #191919; color: #dadada; }
+a.primary { display: flex; align-items: center; justify-content: center; color: #fff; }
 .footnote { font-size: 9px; line-height: 1.5; color: #777; margin: 8px 0; }
 .actions .footnote { text-align: center; margin: 0 0 4px; }
 .description { margin-top: 38px; h2 { font-size: 17px; margin: 0 0 10px; } p { font-size: 15px; line-height: 1.45; margin: 0 0 16px; } }

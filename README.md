@@ -43,9 +43,13 @@ Run the adapter checks with `pnpm test:matching`, then `pnpm typecheck` and `pnp
 
 The existing `POST /api/rank` endpoint retains the recommendations team’s core `HousingProfile` contract. The questionnaire uses `POST /api/matches` for its profile and four slider weights. Firecrawl ingestion, refresh endpoints, and their migrations remain intact.
 
+## Example day simulation
+
+On a home detail page, select **See a day living here** and choose a weekday. The app uses timed events from the busiest occurrence of that weekday in the past 30 days, when Calendar is connected. The app also uses profile details, manual schedules, approved Calendar places, and available walking estimates. The hard day models difficult weather and a travel delay. The timeline labels invented times, weather, and bus conditions as illustrative. Saved Calendar places include visit counts; the app reads event times from the current connection. The app does not use a live weather forecast or bus feed. Set `OPENAI_API_KEY` to enable generation.
+
 ## Known limitations
 
-Day simulation is not implemented. Location measures walking only, including for students with cars. Calendar frequency affects Location, but event times and transit do not. Home fit only checks bedroom adequacy. Individual slider changes rerank locally; Done saves priorities for signed-in students. Group rankings refresh after priorities are saved. Personal favorites are browser-local; group favorites are shared through Supabase. Calendar access expires after one hour and requires reconnection. Catalog validation currently fails the whole request on a malformed listing.
+The example day is illustrative and does not compare two homes yet. Location measures walking only, including for students with cars. Calendar frequency affects Location, but event times and transit do not. Home fit only checks bedroom adequacy. Individual slider changes rerank locally; Done saves priorities for signed-in students. Group rankings refresh after priorities are saved. Personal favorites are browser-local; group favorites are shared through Supabase. Calendar access expires after one hour and requires reconnection. Catalog validation currently fails the whole request on a malformed listing.
 
 ## Group availability email
 

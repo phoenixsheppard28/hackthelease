@@ -15,6 +15,8 @@ import { PrioritySliders } from "./PrioritySliders";
 import { Icon } from "./Icon";
 import { ListingAvailability } from './ListingAvailability';
 import { GroupDialog } from "@/components/groups/GroupDialog";
+import { GroupInbox } from "./GroupInbox";
+import type { GroupInbox as Inbox } from "@/lib/availability/contracts";
 import { createPriorityEditor, priorityEditorReducer } from './priority-editor';
 import surveyStyles from "./Onboarding.module.scss";
 import styles from "./Results.module.scss";
@@ -38,13 +40,13 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
   useEffect(() => { editPriorities({ type: 'sync', weights: profile.weights }); }, [profile.weights]);
   const [query, setQuery] = useState(initialBrowse?.query ?? "");
   const [homeType, setHomeType] = useState<BrowseContext["homeType"]>("All homes");
-  const [view, setView] = useState<"homes" | "saved">(initialBrowse?.view ?? "homes");
+  const [view, setView] = useState<BrowseContext["view"]>(initialBrowse?.view ?? "homes");
   const [saved, setSaved] = useState<string[]>([]);
   const [savedError, setSavedError] = useState("");
   const [groupOpen, setGroupOpen] = useState(initialGroupOpen);
   const [accountError, setAccountError] = useState("");
   const [signingOut, setSigningOut] = useState(false);
-  const group = useQuery<{ group: { id: string; name: string } | null }>({
+  const group = useQuery<{ group: { id: string; name: string; members: { id: string; email: string }[] } | null }>({
     queryKey: ["housing-group"], enabled: profileId !== "demo-preview",
     refetchInterval: 15000,
     queryFn: async () => {
@@ -63,6 +65,17 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
       return response.json();
     },
   });
+  const inbox = useQuery<Inbox>({
+    queryKey: ["group-inbox", groupId], enabled: Boolean(groupId),
+    refetchInterval: groupId ? 15000 : false,
+    queryFn: async () => {
+      const response = await fetch("/api/availability/inbox");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load the group inbox.");
+      return data;
+    },
+  });
+  const pendingDrafts = inbox.data?.threads.reduce((count, thread) => count + thread.followups.filter(item => item.status === "draft").length, 0) ?? 0;
   useEffect(() => {
     saveBrowseContext(profileId, { profile, weights, query, homeType, view });
   }, [profileId, profile, weights, query, homeType, view]);
@@ -159,6 +172,7 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
       <nav className={styles.tabs} aria-label="Browse listings">
         <UnstyledButton aria-current={view === "homes" ? "page" : undefined} onClick={() => setView("homes")}>Homes</UnstyledButton>
         <UnstyledButton aria-current={view === "saved" ? "page" : undefined} onClick={() => setView("saved")}>Saved{pricedSavedCount ? ` (${pricedSavedCount})` : ""}</UnstyledButton>
+        {groupId && <UnstyledButton aria-current={view === "inbox" ? "page" : undefined} onClick={() => setView("inbox")}>Inbox{pendingDrafts ? ` (${pendingDrafts})` : ""}</UnstyledButton>}
       </nav>
       {profileId === "demo-preview" ? <UnstyledButton className={styles.student} onClick={onBack} aria-label="Back to sign in"><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></UnstyledButton> : <div className={styles.accountMenu}>
         <Menu position="bottom-end" offset={8} width={225} radius={6} shadow="sm" classNames={{ dropdown: surveyStyles.accountDropdown, item: surveyStyles.accountItem }}>
@@ -182,6 +196,10 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
       </div>
     </div>
     <main className={styles.main}>
+      {view === "inbox" ? <>
+        <div className={styles.headingRow}><div><h1>{group.data?.group?.name ?? "Group"} inbox</h1><p>Landlord replies and agent-drafted responses</p></div></div>
+        <GroupInbox inbox={groupId ? inbox.data : { configured: false, groupId: null, inboxEmail: null, threads: [] }} members={group.data?.group?.members ?? []} profileId={profileId} error={inbox.error?.message} onChange={() => inbox.refetch()} />
+      </> : <>
       <div className={styles.headingRow}>
         <div><h1>{view === "saved" ? groupId ? "Your group's saved homes" : "Your saved homes" : groupId ? `${group.data?.group?.name} matches` : "Your best matches in Ann Arbor"}</h1><p>{matches.isPending ? "Finding homes and checking your priorities…" : `${homes.length} ${homes.length === 1 ? "home" : "homes"}`}<span>{allZero ? ' · Set priorities to rank' : ' · Best match first'}</span></p></div>
         <UnstyledButton className={styles.prioritiesButton} onClick={openPriorities}><Icon name="sliders" size={18} />Your priorities</UnstyledButton>
@@ -215,6 +233,7 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
             <p className={styles.price}><strong>{rentText(home)}</strong>{rentBasisText(home)}</p>
           </article>;
         })}</div>}
+      </>}
     </main>
     <Modal opened={priorityEditor.opened} onClose={() => editPriorities({ type: 'cancel' })} closeOnClickOutside={!priorityEditor.saving} closeOnEscape={!priorityEditor.saving} title="What matters most to you?" size={740} centered radius={20} closeButtonProps={{ "aria-label": "Cancel priority changes", disabled: priorityEditor.saving }}>
       <div className={`${surveyStyles.shell} ${styles.modalBody}`}><div className={styles.demoNote}>{matches.data?.notices.map(notice => <p key={notice}>{notice}</p>)}</div>

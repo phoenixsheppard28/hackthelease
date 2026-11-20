@@ -16,6 +16,9 @@ describe('tenant renewal listing flag', () => {
       expect(render(signed, compact)).not.toContain('Tenants renewing');
     }
   });
+  it('marks landlord-confirmed availability', () => {
+    expect(render({ ...report, status: 'available' }, true)).toContain('Available · Landlord confirmed');
+  });
   it('shows the same label on cards and details, with source and lease dates', () => {
     expect(render(report, true)).toContain('Tenants renewing');
     const html = render(report);
@@ -30,7 +33,7 @@ describe('tenant renewal listing flag', () => {
     expect(html).not.toContain('Landlord email');
   });
   it('hides missing, corrected, expired, and ended-term reports', () => {
-    for (const value of [null, { ...report, status: 'available' as const }, { ...report, reportedAt: '2026-10-20T12:00:00Z' }, { ...report, leaseEnd: '2026-11-19' }]) {
+    for (const value of [null, { ...report, status: 'renewal_undecided' as const }, { ...report, reportedAt: '2026-10-20T12:00:00Z' }, { ...report, leaseEnd: '2026-11-19' }]) {
       expect(currentListingAvailability(value)).toBeNull();
       expect(render(value)).toBe('');
     }

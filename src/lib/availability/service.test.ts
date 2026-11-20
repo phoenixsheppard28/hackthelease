@@ -3,10 +3,12 @@ vi.mock('server-only', () => ({}));
 vi.mock('./storage', async importOriginal => ({ ...await importOriginal<typeof import('./storage')>(), storage: vi.fn(), memberGroup: vi.fn(), canReview: vi.fn() }));
 vi.mock('./agentmail', async importOriginal => ({ ...await importOriginal<typeof import('./agentmail')>(), agentmail: vi.fn(), createGroupInbox: vi.fn() }));
 vi.mock('./proposal', () => ({ proposeAvailability: vi.fn() }));
+vi.mock('./followup', () => ({ draftFollowup: vi.fn() }));
 import { storage, memberGroup, canReview } from './storage';
 import { agentmail, safeIncoming, type MailMessage } from './agentmail';
 import { proposeAvailability } from './proposal';
-import { ownedInquiry, sendInquiry, recordReply, publishConfirmation, createInquiry } from './service';
+import { draftFollowup } from './followup';
+import { ownedInquiry, sendInquiry, recordReply, publishConfirmation, createInquiry, sendFollowup } from './service';
 import { inquiryEmail, inquiryInput, type Inquiry } from './contracts';
 const inquiry: Inquiry = { id: 'id-1', group_id: 'group-1', listing_id: 'listing-1', requested_by: 'user-1', lease_start: '2027-08-01', lease_end: '2028-08-01', recipient: 'landlord@example.com', subject: 'Availability', body: 'Is unit 1 available?', inbox_id: 'group@example.com', thread_id: 'thread-1', message_id: 'outgoing-1', status: 'draft', attempted_at: null, created_at: new Date().toISOString(), is_test: false };
 const message: MailMessage = { message_id: 'reply-1', inbox_id: inquiry.inbox_id!, thread_id: inquiry.thread_id!, from: 'Landlord <landlord@example.com>', timestamp: new Date().toISOString(), labels: ['received'], text: 'Yes, available.' };
@@ -114,5 +116,36 @@ describe('email contract', () => {
   it('includes the specific unit and dates and strips subject newlines', () => {
     const email = inquiryEmail('123 Main\nStreet', '2', '2027-08-01', '2028-08-01');
     expect(email.subject).not.toMatch(/[\r\n]/); expect(email.body).toContain('unit 2'); expect(email.body).toContain('2027-08-01 to 2028-08-01');
+  });
+});
+
+describe('agent follow-up replies', () => {
+  const followup = { id: 'f-1', inquiry_id: inquiry.id, reply_message_id: 'reply-1', body: 'Draft', status: 'draft', sent_by: null, sent_at: null, created_at: '' };
+  it('stores an agent draft for a reply from the landlord', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    vi.mocked(draftFollowup).mockResolvedValue('Thanks! What are the next steps?');
+    await recordReply(inquiry, message);
+    expect(storage).toHaveBeenCalledWith('availability_followups', 'on_conflict=reply_message_id', expect.objectContaining({ body: JSON.stringify({ inquiry_id: inquiry.id, reply_message_id: 'reply-1', body: 'Thanks! What are the next steps?' }) }));
+  });
+  it('does not draft replies to unexpected senders', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    await recordReply(inquiry, { ...message, from: 'someone@example.com' });
+    expect(draftFollowup).not.toHaveBeenCalled();
+  });
+  it('sends the edited draft as a reply in the landlord thread', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([followup]).mockResolvedValueOnce([{ ...inquiry, status: 'reply_received' }]).mockResolvedValueOnce([followup]).mockResolvedValueOnce([]);
+    vi.mocked(agentmail).mockResolvedValue({ message_id: 'out-2' } as never);
+    await sendFollowup('user-1', 'f-1', 'Edited');
+    expect(agentmail).toHaveBeenCalledWith(`inboxes/${encodeURIComponent(inquiry.inbox_id!)}/messages/reply-1/reply`, expect.objectContaining({ headers: { 'Idempotency-Key': 'followup-f-1' }, body: JSON.stringify({ text: 'Edited', labels: ['availability-id-1'] }) }));
+  });
+  it('does not send a draft another member already claimed', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([followup]).mockResolvedValueOnce([inquiry]).mockResolvedValueOnce([]);
+    await sendFollowup('user-1', 'f-1', 'Edited');
+    expect(agentmail).not.toHaveBeenCalled();
+  });
+  it('refuses drafts outside the signed-in group', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([followup]).mockResolvedValueOnce([]);
+    await expect(sendFollowup('user-2', 'f-1', 'Edited')).rejects.toThrow('not found');
+    expect(agentmail).not.toHaveBeenCalled();
   });
 });
