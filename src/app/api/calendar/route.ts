@@ -1,11 +1,14 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { calendarConfigured } from "@/lib/calendar/config";
+import { currentStudent } from "@/lib/supabase/auth";
 
 export async function GET() {
   const available = calendarConfigured();
-  const token = (await cookies()).get("housing_calendar_token")?.value;
-  if (!available || !token) return NextResponse.json({ available, connected: false, events: [] });
+  const store = await cookies();
+  const token = store.get("housing_calendar_token")?.value;
+  const owner = store.get("housing_calendar_owner")?.value;
+  if (!available || !token || !owner || (await currentStudent())?.id !== owner) return NextResponse.json({ available, connected: false, events: [] });
   const query = new URLSearchParams({
     timeMin: new Date().toISOString(), maxResults: "30", singleEvents: "true", orderBy: "startTime", fields: "items(location,start)",
   });

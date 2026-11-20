@@ -15,7 +15,7 @@ Completed profiles save through /api/profiles. The demo starts with no seeded st
 
 ## Calendar
 
-Optional Google Calendar OAuth uses server routes. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, and configure the redirect URI http://localhost:8000/api/calendar/callback in Google Cloud. Set APP_BASE_URL for a deployed origin. The server stores the short-lived access token in an HTTP-only cookie and fetches the next 30 events. Students confirm locations before those events enter their profile.
+Google Calendar uses the Supabase Google sign-in provider. Enable the Google Calendar API and add the read-only Calendar scope in Google Auth Platform. Add `http://localhost:8000/api/calendar/callback` and `https://tryhomework.vercel.app/api/calendar/callback` to Supabase Auth Redirect URLs. The server stores a short-lived Google token in an HTTP-only cookie and fetches the next 30 events. Students confirm locations before those events enter their profile. No separate Calendar client ID or secret is needed.
 
 ## Frontend
 

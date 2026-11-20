@@ -1,37 +1,45 @@
-import { timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { authClient, currentStudent } from "@/lib/supabase/auth";
 import { callbackUrl } from "@/lib/calendar/config";
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const state = url.searchParams.get("state") || "";
-  const expected = (await cookies()).get("housing_calendar_state")?.value || "";
+  const expectedId = (await cookies()).get("housing_calendar_user")?.value;
+  const student = await currentStudent();
+  const code = new URL(request.url).searchParams.get("code");
+  let status = "calendar-error";
   let token = "";
-  let lifetime = 0;
-  if (expected && state.length === expected.length && timingSafeEqual(Buffer.from(state), Buffer.from(expected)) && url.searchParams.get("code")) {
+
+  if (expectedId && student?.id === expectedId && code) {
     try {
-      const result = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID!, client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-          code: url.searchParams.get("code")!, grant_type: "authorization_code", redirect_uri: callbackUrl(request.url),
-        }),
-        signal: AbortSignal.timeout(10000),
-      });
-      if (result.ok) {
-        const data = await result.json();
-        token = data.access_token || "";
-        lifetime = Math.min(Number(data.expires_in) || 0, 3600);
+      const client = await authClient();
+      const { data, error } = await client.auth.exchangeCodeForSession(code);
+      if (!error && data.user?.id !== expectedId) {
+        status = "calendar-account-error";
+        await client.auth.signOut({ scope: "local" });
+      } else if (!error && data.session?.provider_token) {
+        token = data.session.provider_token;
+        status = "calendar-connected";
       }
-    } catch { /* The popup returns an error to the survey so it can offer a retry. */ }
+    } catch {}
   }
-  const status = token ? "calendar-connected" : "calendar-error";
+
   const response = new NextResponse(
     '<!doctype html><title>Google Calendar</title><p>You can return to your housing search.</p><script>if(window.opener){window.opener.postMessage("' + status + '",window.location.origin);window.close();}</script>',
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
   );
+  response.cookies.delete({ name: "housing_calendar_user", path: "/api/calendar" });
   response.cookies.delete({ name: "housing_calendar_state", path: "/api/calendar" });
-  if (token) response.cookies.set("housing_calendar_token", token, { httpOnly: true, sameSite: "lax", secure: callbackUrl(request.url).startsWith("https:"), maxAge: lifetime, path: "/api/calendar" });
+
+  if (token) {
+    // shortcut: Calendar access expires after one hour; refresh tokens are needed for persistent sync.
+    const options = { httpOnly: true, sameSite: "lax" as const, secure: callbackUrl(request.url).startsWith("https:"), maxAge: 3600, path: "/api/calendar" };
+    response.cookies.set("housing_calendar_token", token, options);
+    response.cookies.set("housing_calendar_owner", expectedId!, options);
+  } else {
+    response.cookies.delete({ name: "housing_calendar_token", path: "/api/calendar" });
+    response.cookies.delete({ name: "housing_calendar_owner", path: "/api/calendar" });
+  }
+
   return response;
 }

@@ -208,6 +208,8 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
         queryClient.invalidateQueries({ queryKey: ["calendar"] });
       if (event.data === "calendar-error")
         setError("Calendar could not connect. Please retry or skip for now.");
+      if (event.data === "calendar-account-error")
+        setError("Use the same Google account as your sign-in. Sign in again, then retry.");
     }
     window.addEventListener("message", receiveCalendar);
     return () => window.removeEventListener("message", receiveCalendar);
