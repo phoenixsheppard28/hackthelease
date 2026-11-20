@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { matchesHref, type BrowseContext } from "@/lib/matching/browse-context";
 import { formatMoney, rentText, rentBasisText, type ListingMatchesResponse } from "@/lib/contracts/listing-match";
 import { Icon } from "./Icon";
+import { TravelTimes } from "./TravelTimes";
 import styles from "./ListingDetail.module.scss";
 
 export function ListingDetail({ listingId, profileId, context }: { listingId: string; profileId: string; context: BrowseContext }) {
@@ -72,7 +73,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
             </div>
             {home.images.length > 1 && <div className={styles.photoPicker} aria-label="Property photos">{home.images.map((image, index) => <button key={image} aria-label={`Show photo ${index + 1}`} aria-pressed={index === photoIndex} onClick={() => { setPhotoIndex(index); setFailedPhoto(false); }}><Image src={image} alt="" width={56} height={56} /></button>)}</div>}
           </div>
-          <section className={styles.places}><h2>Your places, from here</h2><div className={styles.placeGrid}>{home.destinations.map(place => <div key={place.name}><p>{place.name}</p><small>{profile.walk[place.name] !== undefined ? `Your limit: ${profile.walk[place.name]} min` : "No walking limit"}</small></div>)}</div><p className={styles.footnote}>Walking times and bus-stop distances need routing data. These preferences have not been scored yet.</p></section>
+          <section className={styles.places}><h2>Your places, from here</h2><div className={styles.placeGrid}>{home.destinations.map(place => <div key={place.name}><p>{place.name}</p><small>{profile.walk[place.name] !== undefined ? `Your limit: ${profile.walk[place.name]} min` : "No walking limit"}</small></div>)}</div><p className={styles.footnote}>These walking limits are not included in the match score yet.</p><TravelTimes key={home.id} origin={home.address} /></section>
         </section>
         <section className={styles.details} aria-label="Home details">
           <div className={styles.location}><span><Icon name="house" size={19} /></span>{home.area}</div>
