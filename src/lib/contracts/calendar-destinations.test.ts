@@ -7,5 +7,6 @@ it("accepts reviewed recurring destinations and rejects missing addresses", () =
   expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: [destination] }).success).toBe(true);
   expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: [{ ...destination, address: "" }] }).success).toBe(false);
   expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: [destination, { ...destination, address: "123 Other St" }] }).success).toBe(false);
-  expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: Array.from({ length: 5 }, (_, index) => ({ ...destination, name: `Place ${index}` })) }).success).toBe(false);
+  expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: Array.from({ length: 5 }, (_, index) => ({ ...destination, name: `Place ${index}`, count: index + 1 })) }).success).toBe(true);
+  expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: Array.from({ length: 6 }, (_, index) => ({ ...destination, name: `Place ${index}` })) }).success).toBe(false);
 });

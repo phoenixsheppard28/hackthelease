@@ -7,24 +7,16 @@ export type CalendarInstance = {
 
 export type FrequentPlace = { title: string; location: string; count: number };
 
-export function frequentRecurringPlaces(events: CalendarInstance[]): FrequentPlace[] {
-  const series = new Map<string, FrequentPlace>();
+export function frequentCalendarPlaces(events: CalendarInstance[]): FrequentPlace[] {
+  const places = new Map<string, FrequentPlace>();
   for (const event of events) {
     const location = event.location?.trim();
-    if (!event.recurringEventId || !location || !event.start?.dateTime) continue;
+    if (!location || !event.start?.dateTime) continue;
+    if (/\b(online|remote|virtual|zoom)\b|meet\.google\.com|teams\.microsoft\.com/i.test(location)) continue;
 
-    const key = event.recurringEventId + "|" + location.toLowerCase().replace(/\s+/g, " ");
-    const current = series.get(key);
-    series.set(key, current ? { ...current, count: current.count + 1 } : { title: event.summary?.trim() || "Recurring event", location, count: 1 });
-  }
-
-  const places = new Map<string, FrequentPlace>();
-  for (const place of series.values()) {
-    if (place.count < 20) continue;
-
-    const key = place.location.toLowerCase().replace(/\s+/g, " ");
+    const key = location.toLowerCase().replace(/\s+/g, " ");
     const current = places.get(key);
-    places.set(key, current ? { ...current, count: current.count + place.count } : place);
+    places.set(key, current ? { ...current, count: current.count + 1 } : { title: event.summary?.trim() || "Calendar event", location, count: 1 });
   }
 
   return [...places.values()].sort((a, b) => b.count - a.count);

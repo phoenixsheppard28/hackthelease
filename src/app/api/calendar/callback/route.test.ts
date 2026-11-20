@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { GET } from "./route";
 import { authClient, currentStudent } from "@/lib/supabase/auth";
+import { runInNewContext } from 'node:vm';
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/auth", () => ({ authClient: vi.fn(), currentStudent: vi.fn() }));
@@ -25,6 +26,14 @@ it("stores the Google token for the same student", async () => {
   expect(response.cookies.get("housing_calendar_owner")?.value).toBe("student-1");
   expect(html).toContain("calendar-connected");
   expect(html).toContain('window.location.replace("/?calendar=review")');
+  const opener = { postMessage: vi.fn() };
+  const close = vi.fn();
+  const replace = vi.fn();
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
+  runInNewContext(script, { window: { opener, close, location: { origin: 'http://localhost:8000', replace } } });
+  expect(opener.postMessage).toHaveBeenCalledWith('calendar-connected', 'http://localhost:8000');
+  expect(close).toHaveBeenCalledOnce();
+  expect(replace).not.toHaveBeenCalled();
 });
 
 it("rejects a different Google account and clears its session", async () => {

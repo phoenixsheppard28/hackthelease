@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { calendarConfigured } from "@/lib/calendar/config";
 import { currentStudent } from "@/lib/supabase/auth";
-import { frequentRecurringPlaces, type CalendarInstance } from "@/lib/calendar/recurring";
+import { frequentCalendarPlaces, type CalendarInstance } from "@/lib/calendar/recurring";
 import { classifyPlaces } from "@/lib/calendar/classify";
 
 export const maxDuration = 60;
@@ -31,7 +31,10 @@ export async function GET(request: Request) {
 
       const data: { items?: CalendarInstance[]; nextPageToken?: string } = await response.json();
       events.push(...(data.items || []));
-      if (!data.nextPageToken) return NextResponse.json({ available, connected: true, places: await classifyPlaces(frequentRecurringPlaces(events)) });
+      if (!data.nextPageToken) {
+        const places = await classifyPlaces(frequentCalendarPlaces(events));
+        return NextResponse.json({ available, connected: true, places: places.sort((a, b) => b.count - a.count).slice(0, 5) });
+      }
       query.set("pageToken", data.nextPageToken);
     }
   } catch {

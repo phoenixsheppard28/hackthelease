@@ -37,11 +37,11 @@ it("fetches events for the student who connected Calendar", async () => {
 
   const response = await GET(new Request("http://localhost:8000/api/calendar?review=1"));
 
-  expect((await response.json()).places).toEqual([]);
+  expect((await response.json()).places).toEqual([{ name: "Campus", address: "", count: 1 }]);
   expect(fetchEvents).toHaveBeenCalledWith(expect.stringContaining("googleapis.com/calendar"), expect.objectContaining({ headers: { Authorization: "Bearer google-token" } }));
 });
 
-it("pages through 120 days and returns only frequent recurring places", async () => {
+it("pages through 120 days and counts visits to each place", async () => {
   cookieValues.set("housing_calendar_token", "google-token");
   cookieValues.set("housing_calendar_owner", "student-1");
   const instances = Array.from({ length: 20 }, (_, index) => ({ recurringEventId: "class", summary: "Class", location: "101 College Ave, Ann Arbor, MI", start: { dateTime: `2027-01-${String(index + 1).padStart(2, "0")}T10:00:00Z` } }));
@@ -57,6 +57,17 @@ it("pages through 120 days and returns only frequent recurring places", async ()
   expect(fetchEvents).toHaveBeenCalledTimes(2);
   expect(fetchEvents.mock.calls[1][0]).toContain("pageToken=page-2");
   expect(fetchEvents.mock.calls[0][0]).toContain("timeMax=");
+});
+
+it("returns the five most visited places in descending order", async () => {
+  cookieValues.set("housing_calendar_token", "google-token");
+  cookieValues.set("housing_calendar_owner", "student-1");
+  const items = Array.from({ length: 7 }, (_, index) => Array.from({ length: index + 1 }, () => ({
+    location: `Campus place ${index}`, start: { dateTime: "2026-12-01T10:00:00Z" },
+  }))).flat();
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ items })));
+  const data = await (await GET(new Request("http://localhost:8000/api/calendar?review=1"))).json();
+  expect(data.places.map((place: { count: number }) => place.count)).toEqual([7, 6, 5, 4, 3]);
 });
 
 it("continues past five Calendar pages before counting visits", async () => {
