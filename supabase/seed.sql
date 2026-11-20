@@ -23,7 +23,11 @@ update public.sources as source
 set contact_email = contacts.email
 from (values
   ('Oxford Companies', 'leasing@oxfordcompanies.com'),
-  ('Cabrio Properties', 'leasing@cabrioproperties.com')
+  ('Cabrio Properties', 'leasing@cabrioproperties.com'),
+  ('CMB Ann Arbor Apartments', 'cmb@annarborapartments.net'),
+  ('Varsity Management', 'leasing@varsitymanagement.com'),
+  ('McKinley State Street Village', 'StateStreetVillage.PropertyWebsite.McKinley@assist.rent'),
+  ('Foundry Lofts', 'info@foundryloftsannarbor.com')
 ) as contacts(provider, email)
 where source.provider = contacts.provider;
 
