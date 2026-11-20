@@ -79,6 +79,15 @@ it('resolves a known building abbreviation without relying on AI', async () => {
   expect(await classifyPlaces([{ title: 'EECS 280', location: 'BBB 1690', count: 8 }])).toEqual([{ name: 'EECS 280', address: '2260 Hayward St, Ann Arbor, MI 48105', count: 8 }]);
 });
 
+it('keeps matching titles at different addresses distinct', async () => {
+  vi.stubEnv('OPENAI_API_KEY', '');
+  const places = await classifyPlaces([
+    { title: 'Office hours', location: '101 College Ave', count: 4 },
+    { title: 'Office hours', location: '202 Main St', count: 2 },
+  ]);
+  expect(places.map(place => place.name)).toEqual(['Office hours (101 College Ave)', 'Office hours (202 Main St)']);
+});
+
 it("does not duplicate a place when AI repeats its index", async () => {
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   const suggestion = { index: 0, name: "Chem Building", address: "930 N University Ave, Ann Arbor, MI", physical: true };

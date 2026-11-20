@@ -56,6 +56,8 @@ describe('personal destinations on a group listing', () => {
     expect(html).toContain('Chemistry Building');
     expect(html).toContain('14 scheduled visits in your imported schedule');
     expect(html).toContain('<summary>Show 1 more place</summary>');
+    expect(html.indexOf('Chemistry Building')).toBeGreaterThan(html.indexOf('<summary>Show 1 more place</summary>'));
+    expect(html.indexOf(profile.hubs[0])).toBeLessThan(html.indexOf('<summary>Show 1 more place</summary>'));
     expect(html).toContain('12 min');
     expect(html).toContain('88% match');
     expect(html).toContain('href="/?home=1"');
