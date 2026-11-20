@@ -23,6 +23,7 @@ const questions: Question[] = [
   { key: "type", title: "Where would you like to live?", emphasis: "live", kind: "choices", options: ["House", "Apartment", "Either"] },
   { key: "share", title: "Are you comfortable sharing a bedroom?", emphasis: "sharing a bedroom", kind: "choices", options: ["Yes", "No"] },
   { key: "occupancy", title: "How many people per bedroom, including you?", emphasis: "people per bedroom", kind: "number", min: 2, max: 21 },
+  { key: "bedrooms", title: "What’s the minimum number of bedrooms you need?", emphasis: "bedrooms", kind: "number", min: 1, max: 21, description: "Count bedrooms for your whole home, including any extra rooms you want." },
   { key: "car", title: "Will you have a car?", emphasis: "car", kind: "choices", options: ["Yes", "No"] },
   { key: "bus", title: "How far would you walk to a bus stop?", emphasis: "bus stop", kind: "number", min: 1, max: 120, description: "Optional. Enter your maximum walk in minutes, or leave blank for no limit." },
   { key: "year", title: "What year are you?", emphasis: "year", kind: "choices", options: ["First year", "Sophomore", "Junior", "Senior", "Graduate", "Other"] },
@@ -63,6 +64,10 @@ export function validateAnswer(question: Question, profile: ProfileDraft): strin
       return "Enter a whole number between " + question.min + " and " + question.max + ".";
     }
     if (question.key === "occupancy" && value > (profile.roommates ?? 0) + 1) return "That’s more people than your group. Check your answer.";
+    if (question.key === "bedrooms") {
+      const roomsForGroup = Math.ceil(((profile.roommates ?? 0) + 1) / (profile.share === "Yes" ? profile.occupancy ?? 1 : 1));
+      if (value < roomsForGroup) return `Your group needs at least ${roomsForGroup} bedrooms with your room-sharing choice.`;
+    }
     return null;
   }
   return typeof value === "string" && value.trim() ? null : "Please complete your answer.";

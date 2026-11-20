@@ -18,6 +18,8 @@ export const housingProfileSchema = z.object({
   type: z.enum(["House", "Apartment", "Either"]),
   share: z.enum(["Yes", "No"]),
   occupancy: z.number().int().min(1).max(21),
+  // Older saved profiles omit this field and retain their inferred room count.
+  bedrooms: z.number().int().min(1).max(21).optional(),
   car: z.enum(["Yes", "No"]),
   bus: minutes.nullable().default(null),
   year: z.enum(["First year", "Sophomore", "Junior", "Senior", "Graduate", "Other"]),
@@ -37,9 +39,16 @@ export const housingProfileSchema = z.object({
   if (profile.occupancy > profile.roommates + 1) {
     context.addIssue({ code: "custom", path: ["occupancy"], message: "Room occupancy cannot exceed your group size." });
   }
+  const roomsForGroup = Math.ceil((profile.roommates + 1) / (profile.share === "Yes" ? profile.occupancy : 1));
+  if (profile.bedrooms !== undefined && profile.bedrooms < roomsForGroup) {
+    context.addIssue({ code: "custom", path: ["bedrooms"], message: `Your group needs at least ${roomsForGroup} bedrooms with your room-sharing choice.` });
+  }
 });
 
 export type HousingProfile = z.infer<typeof housingProfileSchema>;
+export function requiredBedrooms(profile: Pick<HousingProfile, "bedrooms" | "roommates" | "occupancy">): number {
+  return profile.bedrooms ?? Math.ceil((profile.roommates + 1) / profile.occupancy);
+}
 export type ProfileDraft = Partial<HousingProfile>;
 export type SavedProfile = { id: string; profile: HousingProfile };
 export const savedProfileSchema = z.object({ id: z.uuid(), profile: housingProfileSchema });
