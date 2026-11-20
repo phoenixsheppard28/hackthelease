@@ -53,7 +53,7 @@ describe('personal destinations on a group listing', () => {
     const html = render(profile);
     for (const name of profile.hubs) expect(html).toContain(name);
     expect(html).toContain('Chemistry Building');
-    expect(html).toContain('14 scheduled visits in 120 days');
+    expect(html).toContain('14 scheduled visits in your imported schedule');
     expect(html).toContain('12 min');
     expect(html).toContain('88% match');
     expect(html).toContain('href="/?home=1"');
@@ -62,7 +62,7 @@ describe('personal destinations on a group listing', () => {
   it('keeps an approved Calendar destination visible when its route is unavailable', () => {
     const html = render({ ...previewProfile, calendarDestinations: [{ name: 'Chemistry Building', address: '930 N University Ave', count: 1 }] });
     expect(html).toContain('Chemistry Building');
-    expect(html).toContain('1 scheduled visit in 120 days');
+    expect(html).toContain('1 scheduled visit in your imported schedule');
     expect(html).toContain('Not available');
   });
   it('shows all three personal walking estimates while preserving the group score', () => {

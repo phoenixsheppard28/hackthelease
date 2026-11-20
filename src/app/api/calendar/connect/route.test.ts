@@ -22,7 +22,7 @@ it("requests Calendar access through Supabase Google OAuth", async () => {
 
   expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: {
     redirectTo: "http://localhost:8000/api/calendar/callback",
-    scopes: "https://www.googleapis.com/auth/calendar.events.readonly",
+    scopes: "https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly",
     queryParams: { prompt: "consent", login_hint: "student@example.com" },
   } });
   expect(response.headers.get("location")).toBe("https://project.supabase.co/auth/v1/authorize");

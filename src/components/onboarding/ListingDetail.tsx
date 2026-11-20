@@ -129,7 +129,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
               const limit = profile.walk[name];
               const available = place?.status === 'ok' && place.minutes !== null;
               return <div key={name}><p>{label}</p>
-                {count !== null && <p className={styles.calendarOrigin}>Calendar · {count} scheduled {count === 1 ? 'visit' : 'visits'} in 120 days</p>}
+                {count !== null && <p className={styles.calendarOrigin}>Calendar · {count} scheduled {count === 1 ? 'visit' : 'visits'} in your imported schedule</p>}
                 <strong>{available ? `${place.minutes} min` : personalListing.isPending ? 'Checking…' : 'Not available'}</strong>
                 <p>{available ? `walk${place.distanceMeters !== null ? ` · ${(place.distanceMeters / 1000).toFixed(1)} km` : ''}` : personalListing.isPending ? 'Finding a walking route' : walkingStatusText(place?.status ?? 'unavailable')}</p>
                 <small>{limit === undefined ? 'No walking limit set' : !available ? `Your preference: ${limit} min` : place.minutes! <= limit ? `Within your ${limit} min preference` : `${place.minutes! - limit} min over your ${limit} min preference`}</small>

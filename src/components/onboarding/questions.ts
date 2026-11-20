@@ -14,7 +14,7 @@ export type Question = {
 
 const questions: Question[] = [
   { key: "name", title: "What’s your name?", emphasis: "name", kind: "text" },
-  { key: "calendar", title: "Connect your Google Calendar?", emphasis: "Google Calendar", kind: "calendar", description: "We use AI to suggest places from recurring event titles and locations. Review each place before it affects your matches." },
+  { key: "calendar", title: "Connect your Google Calendar?", emphasis: "Google Calendar", kind: "calendar", description: "Find your most frequent places from the past 30 days across your calendars, including course calendars. Review each place before it affects your matches." },
   { key: "budget", title: "What’s your monthly rent limit?", emphasis: "monthly rent limit", kind: "number", min: 1, max: 100000, description: "Enter your budget in US dollars." },
   { key: "basis", title: "Who does that budget cover?", emphasis: "budget", kind: "choices", options: ["Just me", "Our whole group"] },
   { key: "hubs", title: "Which three places do you visit most?", emphasis: "three places", kind: "multiple", options: campusHubs, description: "Choose three campus destinations." },

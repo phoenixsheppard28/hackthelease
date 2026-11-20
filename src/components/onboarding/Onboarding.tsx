@@ -41,6 +41,9 @@ type CalendarState = {
   available: boolean;
   connected: boolean;
   places: CalendarDestination[];
+  message?: string;
+  needsReconnect?: boolean;
+  scan?: { calendarsRead: number; calendarsFailed: number; eventsRead: number; missingLocation: number; allDay: number; online: number; excluded: number };
 };
 
 async function requestJson<T>(path: string, options?: RequestInit): Promise<T> {
@@ -758,7 +761,7 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                   )}
                   {calendar.isError && (
                     <p role="alert" className={styles.status}>
-                      Could not check your calendar.
+                      {calendar.error.message}
                       <UnstyledButton
                         className={styles.retry}
                         onClick={() => calendar.refetch()}
@@ -767,13 +770,24 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                       </UnstyledButton>
                     </p>
                   )}
+                  {calendar.data?.message && <p role="status" className={styles.status}>{calendar.data.message}</p>}
+                  {calendar.data?.scan && <div className={styles.status} role="status">
+                    <p>Checked {calendar.data.scan.eventsRead} events across {calendar.data.scan.calendarsRead} calendars in the past 30 days.</p>
+                    {calendar.data.scan.missingLocation > 0 && <p>{calendar.data.scan.missingLocation} timed events had no Location field. Add the building or street address in Google Calendar, then scan again.</p>}
+                    {(calendar.data.scan.allDay > 0 || calendar.data.scan.online > 0 || calendar.data.scan.excluded > 0) && <p>Skipped {calendar.data.scan.allDay} all-day, {calendar.data.scan.online} online, and {calendar.data.scan.excluded} canceled or declined events.</p>}
+                    {calendar.data.scan.calendarsFailed > 0 && <p role="alert">Could not read {calendar.data.scan.calendarsFailed} calendars. These results are incomplete.</p>}
+                  </div>}
+                  {calendar.data?.connected && <UnstyledButton className={styles.retry} disabled={calendar.isFetching} onClick={() => {
+                    setReviewCalendar(true);
+                    setCalendarConnection(current => current + 1);
+                  }}>{calendar.isFetching ? "Scanning…" : "Scan past 30 days again"}</UnstyledButton>}
                   {calendar.data?.connected && reviewCalendar && !calendar.data.places.length && !calendarPlaces.length && (
                     <p className={styles.status}>
-                      No places with timed Calendar events were found in the next 120 days. You can continue with your campus destinations.
+                      No physical places with timed Calendar events were found in the past 30 days. You can continue with your campus destinations.
                     </p>
                   )}
                   <div className={styles.calendarLocations}>
-                    {calendarPlaces.length > 0 && <p className={styles.status}>Your top {calendarPlaces.length} places by scheduled visits in the next 120 days. Confirm the names and addresses, or exclude any you don’t want included.</p>}
+                    {calendarPlaces.length > 0 && <p className={styles.status}>{calendar.data?.scan ? `Your top ${calendarPlaces.length} places by scheduled visits in the past 30 days.` : "Your saved Calendar places."} Confirm the names and addresses, or exclude any you don’t want included.</p>}
                     {calendarPlaces.map((place, index) => (
                       <div key={index} className={styles.calendarPlace}>
                         <p className={styles.status}>{index + 1}. {place.count} scheduled {place.count === 1 ? 'visit' : 'visits'}</p>

@@ -21,6 +21,12 @@ it("keeps a manual review option when AI is unavailable", async () => {
     .toEqual([{ name: "Unknown room", address: "", count: 20 }]);
 });
 
+it('does not silently discard a class location that AI cannot identify', async () => {
+  vi.stubEnv('OPENAI_API_KEY', 'test-key');
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ output: [{ content: [{ type: 'output_text', text: JSON.stringify({ places: [{ index: 0, name: '', address: '', physical: false }] }) }] }] })));
+  expect(await classifyPlaces([{ title: 'EECS 280', location: 'BBB 1690', count: 8 }])).toEqual([{ name: 'BBB 1690', address: '', count: 8 }]);
+});
+
 it("does not duplicate a place when AI repeats its index", async () => {
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   const suggestion = { index: 0, name: "Chem Building", address: "930 N University Ave, Ann Arbor, MI", physical: true };

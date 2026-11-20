@@ -37,7 +37,9 @@ export async function classifyPlaces(places: FrequentPlace[]): Promise<CalendarD
     const classified = candidates.flatMap((candidate, index) => {
       const place = byIndex.get(index);
       if (!place) return [fallback[index]];
-      if (!place.physical) return [];
+      // Unknown building abbreviations must not disappear on an AI guess.
+      // Explicit online locations are already excluded before classification.
+      if (!place.physical) return [fallback[index]];
       return [{ name: place.name.trim().slice(0, 100) || candidate.location,
         address: place.address.trim().slice(0, 200), count: candidate.count }];
     });

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       provider: "google",
       options: {
         redirectTo: redirect,
-        scopes: "https://www.googleapis.com/auth/calendar.events.readonly",
+        scopes: "https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly",
         queryParams: { prompt: "consent", login_hint: student.email },
       },
     });
