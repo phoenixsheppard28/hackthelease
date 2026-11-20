@@ -152,3 +152,61 @@ The user chose to keep production refresh disabled until a team account is ready
 | 5. Routing and simulation | Add the travel-time function, fixed-day comparison, and delay scenario. |
 | 6. Results and comparison | Ranked cards and refresh status exist. Add side-by-side comparison and a day timeline. |
 | 7. AgentMail | Add inquiry drafts, recipient review, and the approved send action. |
+
+## Continuation: 22:24–23:04 EST
+
+The agent deployed the app at [Hack the Lease](https://hack-the-lease.vercel.app).
+The user kept production refresh disabled until a team account exists.
+The agent added all 17 source records and set paths for bounded crawls.
+The agent ran one crawl for each source.
+
+| Source | Pages | New listings | Result |
+| --- | ---: | ---: | --- |
+| Ann Arbor City Club | 14 | 0 | Succeeded |
+| Cabrio Properties | 94 | 28 | Succeeded |
+| Chapter Ann Arbor | 1 | 0 | Succeeded |
+| CMB Ann Arbor Apartments | 15 | 6 | Succeeded |
+| Foundry Lofts | 3 | 0 | Succeeded |
+| Landmark Ann Arbor | 16 | 0 | Succeeded |
+| McKinley State Street Village | 24 | 0 | Succeeded |
+| Oxford Companies | 76 | 73 | Partial: one invalid page |
+| Pappas Rentals | 9 | 0 | Succeeded |
+| Six11 | 13 | 0 | Succeeded |
+| The Haven of Ann Arbor | 13 | 9 | Succeeded |
+| The Standard at Ann Arbor | 6 | 0 | Succeeded |
+| The Yard on South Main | 24 | 0 | Succeeded |
+| University of Michigan Off-Campus Housing | 1 | 0 | Succeeded |
+| Varsity Management | 43 | 40 | Partial: two invalid pages |
+| Vic Village North | 16 | 1 | Succeeded |
+| Woodbury Gardens | 1 | 0 | Succeeded |
+
+The pass processed 369 pages and added 157 listing rows.
+A later image test ran CMB again and added seven rows.
+The database now has 215 active real listings.
+The production ranking route returns those listings and two demo listings.
+Firecrawl has 8,549 credits after the runs.
+
+The agent added a public Supabase Storage bucket for listing images.
+The webhook extracts up to three property photo URLs per listing.
+The image loader checks HTTPS, public IP addresses, file type, and a 5 MB limit.
+The agent used stored listing URLs to add older photos without another full crawl.
+Storage now has 357 image links across 171 active listings.
+Forty Varsity listings, three Oxford listings, and one Vic listing have no source photo.
+The agent checked public image URLs for Cabrio, Oxford, and CMB.
+
+Firecrawl marked one Foundry job complete before the database received its completion callback.
+The agent checked that all three pages were stored and then sent a signed completion event.
+The agent also removed an Oxford leasing office from search results.
+An extraction check now rejects that office page.
+
+### Remaining work by `task.md` section
+
+| Section | Next work |
+| --- | --- |
+| 1. Database and types | Add `DaySimulation` and a student schedule with section 5. |
+| 2. Ingestion | Improve sites with zero listings. Add completion reconciliation. Enable team refresh after an Auth account exists. |
+| 3. Onboarding and calendar | Add housing type, travel limits, schedule entry, and optional Google Calendar import. |
+| 4. Matching | Add commute scoring after section 5 supplies travel times. |
+| 5. Routing and simulation | Add travel times, a fixed-day comparison, and a delay case. |
+| 6. Results and comparison | Display stored photos. Add side-by-side comparison and a day timeline. |
+| 7. AgentMail | Add inquiry drafts, recipient review, and an approved send action. |
