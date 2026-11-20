@@ -34,6 +34,18 @@ describe('location score and reranking', () => {
     expect(walkingSummary({ destinations: places }, {})).toBe('Walking estimates incomplete');
   });
 
+  it('uses visit frequency for confirmed calendar places', () => {
+    const calendarDestinations = [{ name: 'Chem Building', address: '930 N University Ave, Ann Arbor, MI', count: 40 }];
+    const profile = { ...previewProfile, calendarDestinations, walk: {} };
+    const manual = walks(20);
+    const near = [...manual, { ...manual[0], name: 'Calendar · Chem Building', minutes: 5 }];
+    const far = [...manual, { ...manual[0], name: 'Calendar · Chem Building', minutes: 40 }];
+
+    expect(locationScore(near, profile)).toBeGreaterThan(locationScore(far, profile)!);
+    expect(locationScore(near, profile)).toBeGreaterThan(locationScore(near, { ...profile, calendarDestinations: [{ ...calendarDestinations[0], count: 20 }] })!);
+    expect(locationScore(manual, profile)).toBeNull();
+  });
+
   it('changes order locally, preserves inputs, and makes all-zero weights unscored', () => {
     const near = rankCatalog(previewProfile, weights, [entry], null).matches[0];
     near.components.find(item => item.label === 'Location')!.score = 95;

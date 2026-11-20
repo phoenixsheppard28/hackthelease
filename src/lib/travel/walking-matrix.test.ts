@@ -19,6 +19,27 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe('walking matrix', () => {
+  it('routes to an approved calendar address', async () => {
+    fetchMock.mockResolvedValue(reply([ok]));
+
+    await walkingMatrix([address], ['Chem Building'], undefined, { 'Chem Building': '930 N University Ave, Ann Arbor, MI' });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1]!.body as string);
+    expect(body.destinations[0].waypoint.address).toBe('930 N University Ave, Ann Arbor, MI');
+  });
+
+  it('keeps larger destination sets within a Routes request limit', async () => {
+    fetchMock.mockResolvedValue(reply([]));
+    const extra = Object.fromEntries(Array.from({ length: 20 }, (_, index) => [`Place ${index}`, `${index + 1} College Ave, Ann Arbor, MI`]));
+
+    await walkingMatrix(Array.from({ length: 40 }, (_, index) => `${index + 1} Main St, Ann Arbor, MI`), [...hubs, ...Object.keys(extra)], undefined, extra);
+
+    for (const [, options] of fetchMock.mock.calls) {
+      const body = JSON.parse(options!.body as string);
+      expect(body.origins.length + body.destinations.length).toBeLessThanOrEqual(50);
+      expect(body.origins.length * body.destinations.length).toBeLessThanOrEqual(625);
+    }
+  });
   it('maps unordered indices, accepts omitted zero indices, and deduplicates addresses', async () => {
     fetchMock.mockResolvedValue(reply([{ ...ok, destinationIndex: 2 }, ok, { ...ok, destinationIndex: 1, duration: '0s', distanceMeters: 0 }]));
     const result = await walkingMatrix([address, ' 123   Main St, Ann Arbor, MI '], hubs);

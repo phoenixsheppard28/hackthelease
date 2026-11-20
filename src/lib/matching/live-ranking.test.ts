@@ -23,6 +23,29 @@ it('filters firm failures before routing and retains homes with route failures',
   expect(result.matches[0].verificationFlags).toContain('Walking estimates incomplete; location needs verification.');
 });
 
+it('routes approved recurring destinations with the manual places', async () => {
+  vi.stubEnv('OPENAI_API_KEY', '');
+  const valid = demoListings[0];
+  const calendarDestinations = [{ name: 'Chem Building', address: '930 N University Ave, Ann Arbor, MI', count: 24 }];
+  vi.mocked(readListingCatalog).mockResolvedValue([{ listing: valid, isDemo: false, embedding: null, images: [], refreshedAt: '2026-11-20' }]);
+  vi.mocked(walkingMatrix).mockResolvedValue(new Map([[addressKey(valid.address), emptyWalking([...previewProfile.hubs, 'Calendar · Chem Building'], 'unavailable')]]));
+
+  await rankLiveListings({ ...previewProfile, calendarDestinations }, previewProfile.weights);
+
+  expect(walkingMatrix).toHaveBeenCalledWith([valid.address], [...previewProfile.hubs, 'Calendar · Chem Building'], undefined, { 'Calendar · Chem Building': calendarDestinations[0].address });
+});
+
+it('routes a Calendar place separately when its name matches a campus hub', async () => {
+  vi.stubEnv('OPENAI_API_KEY', '');
+  const valid = demoListings[0];
+  vi.mocked(readListingCatalog).mockResolvedValue([{ listing: valid, isDemo: false, embedding: null, images: [], refreshedAt: '2026-11-20' }]);
+  vi.mocked(walkingMatrix).mockResolvedValue(new Map());
+
+  await rankLiveListings({ ...previewProfile, calendarDestinations: [{ name: 'Hatcher Library', address: '999 Other St, Ann Arbor, MI', count: 24 }] }, previewProfile.weights);
+
+  expect(walkingMatrix).toHaveBeenCalledWith([valid.address], [...previewProfile.hubs, 'Calendar · Hatcher Library'], undefined, { 'Calendar · Hatcher Library': '999 Other St, Ann Arbor, MI' });
+});
+
 it.each([{ memberCount: 2, bedrooms: 3, minimum: 3 }, { memberCount: 4, bedrooms: 2, minimum: 4 }])('keeps explicit bedroom needs and actual group size when merging group matching: %j', async ({ memberCount, bedrooms, minimum }) => {
   vi.stubEnv('OPENAI_API_KEY', '');
   const rows = [minimum - 1, minimum].map(beds => ({

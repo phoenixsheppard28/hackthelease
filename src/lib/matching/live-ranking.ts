@@ -5,7 +5,7 @@ import { embedTexts } from "@/lib/embeddings/openai";
 import { readListingCatalog } from "@/lib/supabase/listing-catalog";
 import { matchingProfile, rankCatalog } from "./catalog-matches";
 import { addressKey, emptyWalking, walkingMatrix } from "../travel/walking-matrix";
-import { locationScore, reweightMatches, walkingSummary } from "./location-score";
+import { calendarRouteName, locationScore, reweightMatches, walkingSummary } from "./location-score";
 import { combineGroupMatches } from "./group-ranking";
 import type { SavedProfile } from "@/lib/contracts/housing-profile";
 
@@ -28,9 +28,14 @@ export async function rankLiveListings(profile: HousingProfile, weights: Weights
   signal?.throwIfAborted();
   const result = rankCatalog(profile, weights, catalog, embedding, Boolean(listingId));
   // Firm filters run before routing, so excluded homes never consume route elements.
-  const walking = await walkingMatrix(result.matches.map(home => home.address), profile.hubs, signal);
+  const extra = profile.calendarDestinations;
+  const placesToRoute = [...profile.hubs, ...extra.map(place => calendarRouteName(place.name))];
+  const addressOverrides = Object.fromEntries(extra.map(place => [calendarRouteName(place.name), place.address]));
+  const walking = extra.length
+    ? await walkingMatrix(result.matches.map(home => home.address), placesToRoute, signal, addressOverrides)
+    : await walkingMatrix(result.matches.map(home => home.address), placesToRoute, signal);
   const homes = result.matches.map(home => {
-    const places = walking.get(addressKey(home.address)) ?? emptyWalking(profile.hubs, 'unavailable');
+    const places = walking.get(addressKey(home.address)) ?? emptyWalking(placesToRoute, 'unavailable');
     const score = locationScore(places, profile);
     return { ...home, destinations: places,
       components: home.components.map(component => component.label === 'Location' ? { ...component, score } : component),
@@ -40,7 +45,7 @@ export async function rankLiveListings(profile: HousingProfile, weights: Weights
   });
   const incomplete = homes.filter(home => home.destinations.some(place => place.status !== 'ok')).length;
   const notices = [...result.notices,
-    'Location uses walking time to your three destinations equally. Shorter walks score higher; going over an optional walking preference adds a penalty. Driving, buses, weather, and building opening hours are not included.',
+    'Location uses walking time to your three chosen destinations and any approved recurring Calendar places. Calendar places count more when you visit them more often. Shorter walks score higher; going over an optional walking preference adds a penalty. Driving, buses, weather, and building opening hours are not included.',
     ...(incomplete ? [`${incomplete} homes have incomplete walking estimates. When Location matters, these appear after homes with complete walking estimates; their scores exclude Location.`] : []),
   ];
   return { ...result, matches: reweightMatches(homes, weights), notices };

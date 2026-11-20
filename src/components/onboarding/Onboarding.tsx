@@ -4,7 +4,6 @@ import {
   ActionIcon,
   Button,
   Menu,
-  NativeSelect,
   NumberInput,
   Textarea,
   TextInput,
@@ -22,6 +21,7 @@ import {
   campusHubs,
   housingProfileSchema,
   type HousingProfile,
+  type CalendarDestination,
   type ProfileDraft,
   type SavedProfile,
 } from "@/lib/contracts/housing-profile";
@@ -35,15 +35,10 @@ import { validateAnswer, visibleQuestions } from "./questions";
 import styles from "./Onboarding.module.scss";
 
 type Screen = "home" | "edit" | "survey" | "results";
-type CalendarEvent = {
-  time: string;
-  location: string;
-  hub?: (typeof campusHubs)[number];
-};
 type CalendarState = {
   available: boolean;
   connected: boolean;
-  events: CalendarEvent[];
+  places: CalendarDestination[];
 };
 
 async function requestJson<T>(path: string, options?: RequestInit): Promise<T> {
@@ -72,17 +67,17 @@ function QuestionTitle({
   );
 }
 
-export function Onboarding({ initialProfile, initialGroupOpen = false }: { initialProfile?: SavedProfile; initialGroupOpen?: boolean }) {
-  const [screen, setScreen] = useState<Screen>(initialProfile ? "edit" : "home");
+export function Onboarding({ initialProfile, initialGroupOpen = false, initialCalendarReview = false }: { initialProfile?: SavedProfile; initialGroupOpen?: boolean; initialCalendarReview?: boolean }) {
+  const [screen, setScreen] = useState<Screen>(initialProfile ? initialCalendarReview ? "survey" : "edit" : "home");
   const [profile, setProfile] = useState<ProfileDraft>(initialProfile?.profile ?? {});
   const [profileId, setProfileId] = useState(initialProfile?.id ?? "");
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialProfile && initialCalendarReview ? 1 : 0);
   const [editing, setEditing] = useState(Boolean(initialProfile));
   const [error, setError] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [accountError, setAccountError] = useState("");
   const [groupOpen, setGroupOpen] = useState(initialGroupOpen);
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarPlaces, setCalendarPlaces] = useState<CalendarDestination[]>(initialProfile?.profile.calendarDestinations ?? []);
   const content = useRef<HTMLElement>(null);
   const transitioning = useRef(false);
   const saving = useRef(false);
@@ -103,10 +98,11 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
     queryFn: ({ signal }) => requestJson<GroupState>("/api/groups", { signal }),
   });
   const calendar = useQuery({
-    queryKey: ["calendar"],
+    queryKey: ["calendar", initialCalendarReview || !initialProfile ? "review" : "status"],
     queryFn: ({ signal }) =>
-      requestJson<CalendarState>("/api/calendar", { signal }),
+      requestJson<CalendarState>("/api/calendar" + (initialCalendarReview || !initialProfile ? "?review=1" : ""), { signal }),
     enabled: screen === "survey" && question?.kind === "calendar",
+    staleTime: Infinity,
     retry: false,
   });
   const saveProfile = useMutation({
@@ -194,8 +190,8 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
   }, [screen, step]);
 
   useEffect(() => {
-    if (calendar.data?.connected) setCalendarEvents(calendar.data.events);
-  }, [calendar.data]);
+    if (calendar.data?.connected && (initialCalendarReview || !initialProfile)) setCalendarPlaces(calendar.data.places);
+  }, [calendar.data, initialCalendarReview, initialProfile]);
 
   useEffect(() => {
     function receiveCalendar(event: MessageEvent) {
@@ -205,7 +201,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
       )
         return;
       if (event.data === "calendar-connected")
-        window.location.assign("/");
+        window.location.assign("/?calendar=review");
       if (event.data === "calendar-error")
         setError("Calendar could not connect. Please retry or skip for now.");
       if (event.data === "calendar-account-error")
@@ -241,6 +237,18 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
 
   async function next() {
     if (transitioning.current || saving.current) return;
+    if (question.kind === "calendar" && calendarPlaces.length > 4) {
+      setError("Choose up to four frequent places. Exclude the others before continuing.");
+      return;
+    }
+    if (question.kind === "calendar" && calendarPlaces.some(place => !place.name.trim() || !/\d/.test(place.address))) {
+      setError("Add a street address for each place, or exclude places you do not want to rank.");
+      return;
+    }
+    if (question.kind === "calendar" && new Set(calendarPlaces.map(place => place.name.trim().toLowerCase())).size !== calendarPlaces.length) {
+      setError("Use a different name for each place, or exclude duplicates.");
+      return;
+    }
     const message = validateAnswer(question, profile);
     if (message) {
       setError(message);
@@ -248,6 +256,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
       return;
     }
     if (!editing && step < questions.length - 1) {
+      if (question.kind === "calendar") update("calendarDestinations", calendarPlaces);
       await navigate(() => setStep((current) => current + 1));
       return;
     }
@@ -264,9 +273,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
       bus: profile.car === "No" ? (profile.bus ?? null) : null,
       group: profile.roommates ? profile.group : null,
       interests: profile.interests || "",
-      schedule: editing && (question.kind !== "calendar" || !calendar.data?.connected || !calendarEvents.length)
-        ? profile.schedule
-        : calendarEvents.filter((event) => event.hub),
+      calendarDestinations: question.kind === "calendar" ? calendarPlaces : profile.calendarDestinations,
     });
     if (!completed.success) {
       setError(
@@ -436,7 +443,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
                     setProfile({ weights: { ...defaultWeights } });
                     setProfileId(crypto.randomUUID());
                     setStep(0);
-                    setCalendarEvents([]);
+                    setCalendarPlaces([]);
                     setScreen("survey");
                   });
                 }
@@ -477,6 +484,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
           </h1>
           {screen === "home" && (
             <>
+              {initialCalendarReview && <p className={styles.status}>Calendar connected. Create your profile to review frequent places.</p>}
               <div className={styles.choices}>
                 {!profiles.data?.length && <UnstyledButton
                   className={styles.choice}
@@ -486,7 +494,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
                       setProfile({ weights: { ...defaultWeights } });
                       setProfileId(crypto.randomUUID());
                       setStep(0);
-                      setCalendarEvents([]);
+                      setCalendarPlaces([]);
                       setScreen("survey");
                     })
                   }
@@ -748,39 +756,22 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
                       </UnstyledButton>
                     </p>
                   )}
-                  {calendar.data?.connected && !calendarEvents.length && (
+                  {calendar.data?.connected && (initialCalendarReview || !initialProfile) && !calendar.data.places.length && !calendarPlaces.length && (
                     <p className={styles.status}>
-                      No upcoming timed events with locations found.
+                      No recurring place appears at least 20 times in the next 120 days.
                     </p>
                   )}
                   <div className={styles.calendarLocations}>
-                    {calendarEvents.map((event, index) => (
-                      <NativeSelect
-                        key={event.time + index}
-                        label={
-                          event.time.slice(0, 16).replace("T", " ") +
-                          " · " +
-                          event.location
-                        }
-                        data={["Skip event", ...campusHubs]}
-                        value={event.hub || "Skip event"}
-                        onChange={(change) =>
-                          setCalendarEvents((current) =>
-                            current.map((item, position) =>
-                              position === index
-                                ? {
-                                    ...item,
-                                    hub:
-                                      change.target.value === "Skip event"
-                                        ? undefined
-                                        : (change.target
-                                            .value as (typeof campusHubs)[number]),
-                                  }
-                                : item,
-                            ),
-                          )
-                        }
-                      />
+                    {calendarPlaces.length > 4 && <p className={styles.status}>Choose up to four places for house ranking. <UnstyledButton className={styles.retry} onClick={() => setCalendarPlaces(current => current.slice(0, 4))}>Keep four most frequent</UnstyledButton></p>}
+                    {calendarPlaces.map((place, index) => (
+                      <div key={index} className={styles.calendarPlace}>
+                        <p className={styles.status}>{place.count} visits in 120 days</p>
+                        <TextInput classNames={fieldClasses} label="Place name" value={place.name} maxLength={100}
+                          onChange={change => { const name = change.currentTarget.value; setCalendarPlaces(current => current.map((item, position) => position === index ? { ...item, name } : item)); }} />
+                        <TextInput classNames={fieldClasses} label="Street address" value={place.address} maxLength={200}
+                          onChange={change => { const address = change.currentTarget.value; setCalendarPlaces(current => current.map((item, position) => position === index ? { ...item, address } : item)); }} />
+                        <UnstyledButton className={styles.retry} onClick={() => setCalendarPlaces(current => current.filter((_, position) => position !== index))}>Exclude place</UnstyledButton>
+                      </div>
                     ))}
                   </div>
                 </>

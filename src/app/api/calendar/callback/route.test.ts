@@ -24,7 +24,7 @@ it("stores the Google token for the same student", async () => {
   expect(response.cookies.get("housing_calendar_token")?.value).toBe("google-token");
   expect(response.cookies.get("housing_calendar_owner")?.value).toBe("student-1");
   expect(html).toContain("calendar-connected");
-  expect(html).toContain('window.location.replace("/")');
+  expect(html).toContain('window.location.replace("/?calendar=review")');
 });
 
 it("rejects a different Google account and clears its session", async () => {

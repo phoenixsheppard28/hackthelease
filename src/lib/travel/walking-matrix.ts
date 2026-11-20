@@ -13,29 +13,29 @@ const elementSchema = z.object({
   duration: z.string().regex(/^\d+(?:\.\d+)?s$/).optional(),
   distanceMeters: z.number().int().nonnegative().optional(),
 });
-const BATCH_SIZE = 40; // 40 address origins + 3 destinations < Google's 50-address limit.
 const MAX_ORIGINS = 250;
 export const addressKey = (address: string) => address.trim().replace(/\s+/g, ' ').toLowerCase();
 
-export function emptyWalking(hubs: readonly CampusHub[], status: WalkingStatus): DestinationWalk[] {
+export function emptyWalking(hubs: readonly string[], status: WalkingStatus): DestinationWalk[] {
   return hubs.map(name => ({ name, minutes: null, distanceMeters: null, status, checkedAt: null }));
 }
 
-export async function walkingMatrix(addresses: string[], hubs: readonly CampusHub[], signal?: AbortSignal): Promise<Map<string, DestinationWalk[]>> {
+export async function walkingMatrix(addresses: string[], hubs: readonly string[], signal?: AbortSignal, addressOverrides: Record<string, string> = {}): Promise<Map<string, DestinationWalk[]>> {
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
   const unique = [...new Map(addresses.map(address => [addressKey(address), address.trim()])).entries()];
   const output = new Map(unique.map(([id]) => [id, emptyWalking(hubs, key ? 'unavailable' : 'not_configured')]));
-  if (!key || !unique.length || !hubs.length) return output;
+  if (!key || !unique.length || !hubs.length || hubs.length >= 50) return output;
   const deadline = AbortSignal.timeout(45_000);
   const eligible = unique.filter(([id, address], index) => {
     if (index >= MAX_ORIGINS) { output.set(id, emptyWalking(hubs, 'limited')); return false; }
     if (address.length < 5 || address.length > 200 || !/\d/.test(address)) { output.set(id, emptyWalking(hubs, 'invalid_address')); return false; }
     return true;
   });
-  for (let offset = 0; offset < eligible.length; offset += BATCH_SIZE) {
+  const batchSize = Math.min(40, 50 - hubs.length, Math.floor(625 / hubs.length));
+  for (let offset = 0; offset < eligible.length; offset += batchSize) {
     signal?.throwIfAborted();
     if (deadline.aborted) return output;
-    const batch = eligible.slice(offset, offset + BATCH_SIZE);
+    const batch = eligible.slice(offset, offset + batchSize);
     for (let attempt = 0; attempt < 2; attempt++) {
       signal?.throwIfAborted();
       if (deadline.aborted) return output;
@@ -49,7 +49,7 @@ export async function walkingMatrix(addresses: string[], hubs: readonly CampusHu
           headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key,
             'X-Goog-FieldMask': 'originIndex,destinationIndex,status,condition,distanceMeters,duration' },
           body: JSON.stringify({ origins: batch.map(([, address]) => ({ waypoint: { address } })),
-            destinations: hubs.map(name => ({ waypoint: { address: destinations[name].address } })), travelMode: 'WALK' }),
+            destinations: hubs.map(name => ({ waypoint: { address: addressOverrides[name] ?? destinations[name as CampusHub]?.address } })), travelMode: 'WALK' }),
         });
         if (response.status === 429 || response.status === 401 || response.status === 403) {
           // Stop subsequent batches rather than multiplying a quota/configuration failure.

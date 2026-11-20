@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   }
 
   const response = new NextResponse(
-    '<!doctype html><title>Google Calendar</title><p>You can return to your housing search.</p><script>if(window.opener){window.opener.postMessage("' + status + '",window.location.origin);window.close();}if("' + status + '"==="calendar-connected")window.location.replace("/");</script>',
+    '<!doctype html><title>Google Calendar</title><p>You can return to your housing search.</p><script>if(window.opener){window.opener.postMessage("' + status + '",window.location.origin);window.close();}if("' + status + '"==="calendar-connected")window.location.replace("/?calendar=review");</script>',
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
   );
   response.cookies.delete({ name: "housing_calendar_user", path: "/api/calendar" });

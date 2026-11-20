@@ -4,17 +4,23 @@ import type { Weights } from '../contracts/matching-weights';
 import type { DestinationWalk } from '../travel/types';
 
 // A product heuristic, not a probability, with a 30-minute exponential decay scale.
-// Each selected destination contributes equally. Optional limits add a penalty.
-export function locationScore(places: DestinationWalk[], profile: Pick<HousingProfile, 'hubs' | 'walk'>): number | null {
-  const scores = profile.hubs.map(name => {
+// Calendar weights scale from one manual destination per 20 visits. Optional limits add a penalty.
+export const calendarRouteName = (name: string) => `Calendar · ${name}`;
+
+export function locationScore(places: DestinationWalk[], profile: Pick<HousingProfile, 'hubs' | 'walk' | 'calendarDestinations'>): number | null {
+  const visits = [
+    ...profile.hubs.map(name => ({ name, weight: 1 })),
+    ...profile.calendarDestinations.map(place => ({ name: calendarRouteName(place.name), weight: place.count / 20 })),
+  ];
+  const scores = visits.map(({ name, weight }) => {
     const place = places.find(item => item.name === name);
     if (!place || place.status !== 'ok' || place.minutes === null || !Number.isFinite(place.minutes) || place.minutes < 0) return null;
     const limit = profile.walk[name];
     const penalty = limit !== undefined && place.minutes > limit ? limit / place.minutes : 1;
-    return 100 * Math.exp(-place.minutes / 30) * penalty;
+    return { score: 100 * Math.exp(-place.minutes / 30) * penalty, weight };
   });
   if (!scores.length || scores.some(score => score === null)) return null;
-  return Math.round(scores.reduce<number>((sum, score) => sum + score!, 0) / scores.length);
+  return Math.round(scores.reduce((sum, item) => sum + item!.score * item!.weight, 0) / visits.reduce((sum, item) => sum + item.weight, 0));
 }
 
 export function walkingSummary(home: Pick<ListingMatch, 'destinations'>, walk: HousingProfile['walk']): string {

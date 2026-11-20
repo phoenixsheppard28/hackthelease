@@ -32,6 +32,13 @@ it("opens profile editing when requested", async () => {
   expect(page.props.initialProfile).toEqual(saved);
 });
 
+it("opens Calendar review for a returning student after connection", async () => {
+  const page = await HomePage({ searchParams: Promise.resolve({ calendar: "review" }) });
+
+  expect(redirect).not.toHaveBeenCalled();
+  expect(page.props.initialCalendarReview).toBe(true);
+});
+
 it("opens group settings over matches for a returning student", async () => {
   await expect(HomePage({ searchParams: Promise.resolve({ group: "1" }) })).rejects.toThrow("NEXT_REDIRECT");
 

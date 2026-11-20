@@ -35,6 +35,12 @@ export const housingProfileSchema = z.object({
     location: z.string(),
     hub: z.enum(campusHubs),
   })).default([]),
+  calendarDestinations: z.array(z.object({
+    name: z.string().trim().min(1).max(100),
+    address: z.string().trim().min(5).max(200).regex(/\d/, "Enter a street address."),
+    count: z.number().int().min(20).max(2500),
+  })).max(4).refine(places => new Set(places.map(place => place.name.toLowerCase())).size === places.length,
+    "Use a different name for each Calendar place.").default([]),
 }).superRefine((profile, context) => {
   if (profile.occupancy > profile.roommates + 1) {
     context.addIssue({ code: "custom", path: ["occupancy"], message: "Room occupancy cannot exceed your group size." });
@@ -46,6 +52,7 @@ export const housingProfileSchema = z.object({
 });
 
 export type HousingProfile = z.infer<typeof housingProfileSchema>;
+export type CalendarDestination = HousingProfile["calendarDestinations"][number];
 export function requiredBedrooms(profile: Pick<HousingProfile, "bedrooms" | "roommates" | "occupancy">): number {
   return profile.bedrooms ?? Math.ceil((profile.roommates + 1) / profile.occupancy);
 }
