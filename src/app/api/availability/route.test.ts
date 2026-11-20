@@ -25,8 +25,8 @@ describe('availability API authorization', () => {
     expect(publishConfirmation).not.toHaveBeenCalled();
   });
   it('does not accept a recipient or group override from the browser', async () => {
-    await POST(request({ action: 'draft', input: { listingId: id, leaseStart: '2027-08-01', leaseEnd: '2028-08-01', recipient: 'attacker@example.com', groupId: 'other-group' } }));
-    expect(createInquiry).toHaveBeenCalledWith('user-1', { listingId: id, leaseStart: '2027-08-01', leaseEnd: '2028-08-01' });
+    await POST(request({ action: 'draft', input: { listingId: id, question: 'Is it available?', recipient: 'attacker@example.com', groupId: 'other-group' } }));
+    expect(createInquiry).toHaveBeenCalledWith('user-1', { listingId: id, question: 'Is it available?' });
   });
   it('returns ownership errors without leaking another group', async () => {
     vi.mocked(sendInquiry).mockRejectedValue(new AvailabilityError('Inquiry not found.', 404));

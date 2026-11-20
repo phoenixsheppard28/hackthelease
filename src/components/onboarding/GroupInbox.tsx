@@ -42,7 +42,7 @@ function Thread({ thread, members, profileId, onChange }: { thread: InboxThread;
     <header>
       <div>
         <Link href={`/listings/${listing.id}?profile=${encodeURIComponent(profileId)}`}>{listing.title}</Link>
-        <p className={styles.meta}>{inquiry.lease_start} to {inquiry.lease_end} · Asked by {person(inquiry.requested_by)}{inquiry.is_test ? ' · Test email' : ''}</p>
+        <p className={styles.meta}>{inquiry.subject}{inquiry.lease_start && inquiry.lease_end ? ` · ${inquiry.lease_start} to ${inquiry.lease_end}` : ''} · Asked by {person(inquiry.requested_by)}{inquiry.is_test ? ' · Test email' : ''}</p>
       </div>
       <span className={styles.status} data-answered={answered}>{answered ? 'Landlord replied' : inquiry.status === 'draft' ? 'Draft' : 'Waiting for reply'}</span>
     </header>

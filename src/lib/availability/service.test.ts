@@ -4,12 +4,14 @@ vi.mock('./storage', async importOriginal => ({ ...await importOriginal<typeof i
 vi.mock('./agentmail', async importOriginal => ({ ...await importOriginal<typeof import('./agentmail')>(), agentmail: vi.fn(), createGroupInbox: vi.fn() }));
 vi.mock('./proposal', () => ({ proposeAvailability: vi.fn() }));
 vi.mock('./followup', () => ({ draftFollowup: vi.fn() }));
+vi.mock('./compose', async importOriginal => ({ ...await importOriginal<typeof import('./compose')>(), composeInquiry: vi.fn() }));
 import { storage, memberGroup, canReview } from './storage';
 import { agentmail, safeIncoming, type MailMessage } from './agentmail';
 import { proposeAvailability } from './proposal';
 import { draftFollowup } from './followup';
 import { ownedInquiry, sendInquiry, recordReply, publishConfirmation, createInquiry, sendFollowup, groupInbox } from './service';
-import { inquiryEmail, inquiryInput, type Inquiry } from './contracts';
+import { emailEdit, inquiryInput, type Inquiry } from './contracts';
+import { composeInquiry, fallbackEmail } from './compose';
 const inquiry: Inquiry = { id: 'id-1', group_id: 'group-1', listing_id: 'listing-1', requested_by: 'user-1', lease_start: '2027-08-01', lease_end: '2028-08-01', recipient: 'landlord@example.com', subject: 'Availability', body: 'Is unit 1 available?', inbox_id: 'group@example.com', thread_id: 'thread-1', message_id: 'outgoing-1', status: 'draft', attempted_at: null, created_at: new Date().toISOString(), is_test: false };
 const message: MailMessage = { message_id: 'reply-1', inbox_id: inquiry.inbox_id!, thread_id: inquiry.thread_id!, from: 'Landlord <landlord@example.com>', timestamp: new Date().toISOString(), labels: ['received'], text: 'Yes, available.' };
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(memberGroup).mockResolvedValue('group-1'); vi.stubEnv('AGENTMAIL_API_KEY', 'test-key'); vi.stubEnv('AGENTMAIL_TEST_RECIPIENT', ''); });
@@ -46,9 +48,11 @@ describe('availability ownership and delivery', () => {
   });
   it('uses the server listing contact and never creates an inbox while drafting', async () => {
     vi.mocked(storage).mockResolvedValueOnce([]).mockResolvedValueOnce([{ address: '123 Main', unit: '2', contact: { email: 'Landlord@example.com' } }]).mockResolvedValueOnce([inquiry]);
-    await createInquiry('user-1', { listingId: inquiry.listing_id, leaseStart: '2090-08-01', leaseEnd: '2091-08-01' });
+    vi.mocked(composeInquiry).mockResolvedValue({ subject: 'Utilities', body: 'Are utilities included at 123 Main, unit 2?', leaseStart: null, leaseEnd: null });
+    await createInquiry('user-1', { listingId: inquiry.listing_id, question: 'utilities included?' });
+    expect(composeInquiry).toHaveBeenCalledWith('123 Main', '2', 'utilities included?');
     const payload = JSON.parse(String(vi.mocked(storage).mock.calls[2][2]?.body));
-    expect(payload.recipient).toBe('landlord@example.com'); expect(payload.body).toContain('unit 2');
+    expect(payload.recipient).toBe('landlord@example.com'); expect(payload.body).toContain('unit 2'); expect(payload.lease_start).toBeNull();
     expect(agentmail).not.toHaveBeenCalled();
   });
 });
@@ -117,10 +121,14 @@ describe('reply trust and publication', () => {
   });
 });
 describe('email contract', () => {
-  it('requires a positive lease interval', () => expect(inquiryInput.safeParse({ listingId: '11111111-1111-4111-8111-111111111111', leaseStart: '2027-08-01', leaseEnd: '2027-07-01' }).success).toBe(false));
-  it('includes the specific unit and dates and strips subject newlines', () => {
-    const email = inquiryEmail('123 Main\nStreet', '2', '2027-08-01', '2028-08-01');
-    expect(email.subject).not.toMatch(/[\r\n]/); expect(email.body).toContain('unit 2'); expect(email.body).toContain('2027-08-01 to 2028-08-01');
+  it('requires a question', () => expect(inquiryInput.safeParse({ listingId: '11111111-1111-4111-8111-111111111111', question: ' ' }).success).toBe(false));
+  it('rejects edited subjects with newlines', () => expect(emailEdit.safeParse({ subject: 'Hi\nBcc: x', body: 'Hello' }).success).toBe(false));
+  it('keeps the question in the fallback email', () => expect(fallbackEmail('123 Main, unit 2', 'Is parking included?').body).toContain('Is parking included?'));
+  it('saves edits to a draft before sending it', async () => {
+    vi.mocked(storage).mockResolvedValueOnce([inquiry]).mockResolvedValue([]);
+    vi.mocked(agentmail).mockResolvedValue({} as never);
+    await sendInquiry('user-1', inquiry.id, { subject: 'New', body: 'Edited' }).catch(() => undefined);
+    expect(storage).toHaveBeenCalledWith('availability_inquiries', 'id=eq.id-1&status=eq.draft', { method: 'PATCH', body: JSON.stringify({ subject: 'New', body: 'Edited' }) });
   });
 });
 
