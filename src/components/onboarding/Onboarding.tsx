@@ -29,6 +29,8 @@ import { Icon } from "./Icon";
 import { MatchesEntry } from "./MatchesPage";
 import { PrioritySliders } from "./PrioritySliders";
 import { defaultWeights } from "@/lib/contracts/matching-weights";
+import { GroupDialog } from "@/components/groups/GroupDialog";
+import type { GroupState } from "@/components/groups/GroupDashboard";
 import { validateAnswer, visibleQuestions } from "./questions";
 import styles from "./Onboarding.module.scss";
 
@@ -70,15 +72,16 @@ function QuestionTitle({
   );
 }
 
-export function Onboarding() {
-  const [screen, setScreen] = useState<Screen>("home");
-  const [profile, setProfile] = useState<ProfileDraft>({});
-  const [profileId, setProfileId] = useState("");
+export function Onboarding({ initialProfile, initialGroupOpen = false }: { initialProfile?: SavedProfile; initialGroupOpen?: boolean }) {
+  const [screen, setScreen] = useState<Screen>(initialProfile ? "edit" : "home");
+  const [profile, setProfile] = useState<ProfileDraft>(initialProfile?.profile ?? {});
+  const [profileId, setProfileId] = useState(initialProfile?.id ?? "");
   const [step, setStep] = useState(0);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(Boolean(initialProfile));
   const [error, setError] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [accountError, setAccountError] = useState("");
+  const [groupOpen, setGroupOpen] = useState(initialGroupOpen);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const content = useRef<HTMLElement>(null);
   const transitioning = useRef(false);
@@ -93,6 +96,11 @@ export function Onboarding() {
     queryKey: ["profiles"],
     queryFn: ({ signal }) =>
       requestJson<SavedProfile[]>("/api/profiles", { signal }),
+    initialData: initialProfile ? [initialProfile] : undefined,
+  });
+  const group = useQuery<GroupState>({
+    queryKey: ["housing-group"],
+    queryFn: ({ signal }) => requestJson<GroupState>("/api/groups", { signal }),
   });
   const calendar = useQuery({
     queryKey: ["calendar"],
@@ -268,7 +276,7 @@ export function Onboarding() {
       saving.current = false;
       await navigate(() => {
         setProfile(saved.profile);
-        setScreen(editing ? "edit" : "results");
+        setScreen("results");
       });
     } catch (failure) {
       saving.current = false;
@@ -372,10 +380,10 @@ export function Onboarding() {
           aria-label="Back to profiles"
           disabled={saveProfile.isPending}
           onClick={() =>
-            screen !== "home" && navigate(() => setScreen("home"), -1)
+            screen !== "home" && navigate(() => setScreen(initialProfile ? "results" : "home"), -1)
           }
         >
-          Hack the Lease
+          Homework
         </UnstyledButton>
         <ol className={styles.stages} aria-label="Progress">
           {[
@@ -429,6 +437,7 @@ export function Onboarding() {
                   });
                 }
               }}>Profile / preferences</Menu.Item>
+              <Menu.Item leftSection={<Icon name="house" size={16} />} onClick={() => setGroupOpen(true)}>{group.isPending ? "Housing group" : group.data?.group ? "Group settings" : "Start a group"}</Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<Icon name="logout" size={16} />} onClick={signOut}>Sign out</Menu.Item>
             </Menu.Dropdown>
@@ -483,6 +492,10 @@ export function Onboarding() {
                   </span>
                   <span>Create your profile</span>
                 </UnstyledButton>}
+                <UnstyledButton className={styles.choice} onClick={() => setGroupOpen(true)}>
+                  <span className={styles.shortcut}><Icon name="plus" size={14} /></span>
+                  {group.isPending ? "Housing group" : group.data?.group ? "Group settings" : "Start a group"}
+                </UnstyledButton>
                 {profiles.data?.map((person) => (
                   <div key={person.id} className={styles.profileChoices}>
                     <UnstyledButton className={styles.choice} onClick={() => navigate(() => {
@@ -819,6 +832,7 @@ export function Onboarding() {
           </div>
         )}
       </main>
+      <GroupDialog opened={groupOpen} onClose={() => setGroupOpen(false)} />
     </div>
   );
 }

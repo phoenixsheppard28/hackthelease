@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   if (code) {
     try {
       const { error } = await (await authClient()).auth.exchangeCodeForSession(code);
-      if (!error) return NextResponse.redirect(new URL("/groups", origin));
+      if (!error) return NextResponse.redirect(new URL("/", origin));
     } catch {}
   }
 

@@ -19,7 +19,7 @@ export function MatchesEntry({ profile, profileId }: { profile: HousingProfile; 
   return <p role="status">Opening your matches…</p>;
 }
 
-export function MatchesPage({ profileId, listingId }: { profileId: string; listingId?: string }) {
+export function MatchesPage({ profileId, listingId, groupOpen = false }: { profileId: string; listingId?: string; groupOpen?: boolean }) {
   const router = useRouter();
   const context = useQuery({
     queryKey: ["browse-context", profileId, listingId ?? "matches"],
@@ -39,8 +39,8 @@ export function MatchesPage({ profileId, listingId }: { profileId: string; listi
     },
   });
   if (context.isPending) return <p role="status" style={{ padding: 32 }}>Loading your {listingId ? "home" : "matches"}…</p>;
-  if (context.isError) return <main style={{ padding: 32 }}><p role="alert">{context.error.message}</p><Link href="/">Choose a student</Link></main>;
+  if (context.isError) return <main style={{ padding: 32 }}><p role="alert">{context.error.message}</p><Link href="/?edit=1">Edit your profile</Link></main>;
   return listingId
     ? <ListingDetail listingId={listingId} profileId={profileId} context={context.data} />
-    : <Results profile={context.data.profile} profileId={profileId} initialBrowse={context.data} onBack={() => router.push("/")} />;
+    : <Results profile={context.data.profile} profileId={profileId} initialBrowse={context.data} initialGroupOpen={groupOpen} onBack={() => router.push("/?edit=1")} />;
 }

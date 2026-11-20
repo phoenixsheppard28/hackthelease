@@ -1,4 +1,4 @@
-# Hack the Lease
+# Homework
 
 Next.js App Router, React, TypeScript, Mantine, Sass modules, TanStack Query, Zod, and pnpm, following docs/TECH_STACK.md.
 
@@ -30,6 +30,8 @@ The supplied reference uses a 1512 × 945 CSS viewport, a 56px header, 16px oute
 Student sign-in uses Google through Supabase Auth. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. Enable Google in Supabase Authentication > Providers and enter the Google OAuth client ID and secret. Add `https://<project-ref>.supabase.co/auth/v1/callback` to the Google client's authorized redirect URIs. In Supabase Authentication > URL Configuration, set Site URL to `https://tryhomework.vercel.app`. Add `http://localhost:8000/api/auth/callback` and `https://tryhomework.vercel.app/api/auth/callback` to Redirect URLs. Supabase links a Google identity to an existing account when Google confirms the same email address. Apply `supabase/migrations/20261120070000_student_groups.sql` to the Supabase project. The connected project received this migration on November 20, 2026.
 
 Students can create one housing group and add an email address to the pending invitations. Tell the invited student to sign in with that Google email. The student sees the invitation after sign-in and can accept it. Group members share a ranking and saved homes; each member keeps a private profile. The group ranking excludes homes that clearly fail any completed member profile and averages the remaining member scores. Existing profiles have no owner and remain stored, but the app no longer shows them.
+
+Sign-in opens homes when a student has a saved profile. New students create a profile first. Housing groups are optional. Students can open group management from homes. The profile button opens profile editing.
 
 The request stays `{ profile, weights }` for the questionnaire. An optional UUID `listingId` loads a single home, including a home that no longer meets the student's requirements. The response is `{ matches, totalListings, notices }`. Cards and details share `ListingMatch` in `src/lib/contracts/listing-match.ts`. Advertised per-unit/per-person rent is preserved; per-person estimates are separately labeled.
 

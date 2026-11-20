@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { acceptInvite, groupSaves, inviteToGroup } from "./store";
+import { acceptInvite, cancelGroupInvite, groupSaves, inviteToGroup, removeGroupMember, renameGroup } from "./store";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 vi.mock("server-only", () => ({}));
@@ -71,5 +71,77 @@ describe("group access", () => {
 
     await expect(acceptInvite(studentId, "invited@example.com", inviteId)).rejects.toThrow();
     expect((await acceptInvite(studentId, "invited@example.com", inviteId))?.id).toBe(groupId);
+  });
+
+  it("lets the creator rename the group", async () => {
+    vi.mocked(supabaseAdmin).mockReturnValue({ auth: { admin: { getUserById: async () => ({ data: { user: { email: "owner@example.com" } }, error: null }) } } } as never);
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.includes("housing_group_members")) return Response.json([{ group_id: groupId, user_id: studentId }]);
+      if (url.includes("housing_groups")) return Response.json([{ id: groupId, name: init?.method === "PATCH" ? "New name" : "Roommates", created_by: studentId }]);
+      return Response.json([]);
+    }));
+
+    expect((await renameGroup(studentId, "New name")).name).toBe("New name");
+    expect(calls.some(call => call.startsWith("PATCH ") && call.includes(`id=eq.${groupId}`))).toBe(true);
+  });
+
+  it("does not let a member remove another member", async () => {
+    vi.mocked(supabaseAdmin).mockReturnValue({ auth: { admin: { getUserById: async () => ({ data: { user: { email: "member@example.com" } }, error: null }) } } } as never);
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push(init?.method ?? "GET");
+      if (url.includes("housing_group_members")) return Response.json([{ group_id: groupId, user_id: studentId }]);
+      if (url.includes("housing_groups")) return Response.json([{ id: groupId, name: "Roommates", created_by: "other-owner" }]);
+      return Response.json([]);
+    }));
+
+    await expect(removeGroupMember(studentId, "other-member")).rejects.toThrow("creator");
+    expect(calls).not.toContain("DELETE");
+  });
+
+  it("does not let a member cancel another group's invitation", async () => {
+    vi.mocked(supabaseAdmin).mockReturnValue({ auth: { admin: { getUserById: async () => ({ data: { user: { email: "member@example.com" } }, error: null }) } } } as never);
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push(init?.method ?? "GET");
+      if (url.includes("housing_group_members")) return Response.json([{ group_id: groupId, user_id: studentId }]);
+      if (url.includes("housing_groups")) return Response.json([{ id: groupId, name: "Roommates", created_by: "other-owner" }]);
+      return Response.json([]);
+    }));
+
+    await expect(cancelGroupInvite(studentId, inviteId)).rejects.toThrow("creator");
+    expect(calls).not.toContain("DELETE");
+  });
+
+  it("removes only a member from the creator's group", async () => {
+    const otherId = "44444444-4444-4444-8444-444444444444";
+    vi.mocked(supabaseAdmin).mockReturnValue({ auth: { admin: { getUserById: async (id: string) => ({ data: { user: { email: `${id}@example.com` } }, error: null }) } } } as never);
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.includes("housing_group_members")) return Response.json([{ group_id: groupId, user_id: studentId }, { group_id: groupId, user_id: otherId }]);
+      if (url.includes("housing_groups")) return Response.json([{ id: groupId, name: "Roommates", created_by: studentId }]);
+      return Response.json([]);
+    }));
+
+    await removeGroupMember(studentId, otherId);
+    expect(calls.some(call => call.startsWith("DELETE ") && call.includes(`group_id=eq.${groupId}`) && call.includes(`user_id=eq.${otherId}`))).toBe(true);
+  });
+
+  it("cancels only a pending invitation from the creator's group", async () => {
+    vi.mocked(supabaseAdmin).mockReturnValue({ auth: { admin: { getUserById: async () => ({ data: { user: { email: "owner@example.com" } }, error: null }) } } } as never);
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.includes("housing_group_members")) return Response.json([{ group_id: groupId, user_id: studentId }]);
+      if (url.includes("housing_groups")) return Response.json([{ id: groupId, name: "Roommates", created_by: studentId }]);
+      if (url.includes("housing_group_invites")) return Response.json([{ id: inviteId, group_id: groupId, email: "invited@example.com", invited_by: studentId, expires_at: "2099-01-01T00:00:00Z", accepted_at: null }]);
+      return Response.json([]);
+    }));
+
+    await cancelGroupInvite(studentId, inviteId);
+    expect(calls.some(call => call.startsWith("DELETE ") && call.includes(`group_id=eq.${groupId}`) && call.includes(`id=eq.${inviteId}`))).toBe(true);
   });
 });

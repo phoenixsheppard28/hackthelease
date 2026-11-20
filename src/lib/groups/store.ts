@@ -66,6 +66,31 @@ export async function createGroup(userId: string, email: string, name: string) {
   return { ...group, members: [{ id: userId, email }] };
 }
 
+export async function renameGroup(userId: string, name: string) {
+  const group = await currentGroup(userId);
+  if (!group || group.created_by !== userId) throw new Error("Only the group creator can rename the group.");
+
+  const [updated] = await rest<Group>("housing_groups", `select=id,name,created_by&id=eq.${group.id}&created_by=eq.${userId}`, { method: "PATCH", body: JSON.stringify({ name }) });
+  if (!updated) throw new Error("Could not rename the group.");
+  return updated;
+}
+
+export async function removeGroupMember(userId: string, memberId: string) {
+  const group = await currentGroup(userId);
+  if (!group || group.created_by !== userId) throw new Error("Only the group creator can remove members.");
+  if (memberId === userId || !group.members.some(member => member.id === memberId)) throw new Error("This member cannot be removed.");
+
+  await rest<Member>("housing_group_members", `group_id=eq.${group.id}&user_id=eq.${encodeURIComponent(memberId)}`, { method: "DELETE" });
+}
+
+export async function cancelGroupInvite(userId: string, inviteId: string) {
+  const group = await currentGroup(userId);
+  if (!group || group.created_by !== userId) throw new Error("Only the group creator can cancel invitations.");
+  if (!group.pendingInvites.some(invite => invite.id === inviteId)) throw new Error("Invitation not found.");
+
+  await rest<Invite>("housing_group_invites", `group_id=eq.${group.id}&id=eq.${encodeURIComponent(inviteId)}`, { method: "DELETE" });
+}
+
 export async function pendingInvites(email: string) {
   const invites = await rest<Invite>("housing_group_invites", `select=id,group_id,email,invited_by,expires_at,accepted_at&email=eq.${encodeURIComponent(email)}&accepted_at=is.null&expires_at=gt.${encodeURIComponent(new Date().toISOString())}`);
   return Promise.all(invites.map(async invite => {

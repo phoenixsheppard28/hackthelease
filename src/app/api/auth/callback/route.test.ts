@@ -14,11 +14,11 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllEnvs());
 
-it("exchanges the code and sends the student to groups", async () => {
+it("exchanges the code and sends the student to their housing search", async () => {
   const response = await GET(new Request("http://localhost:8000/api/auth/callback?code=abc"));
 
   expect(exchangeCodeForSession).toHaveBeenCalledWith("abc");
-  expect(response.headers.get("location")).toBe("http://localhost:8000/groups");
+  expect(response.headers.get("location")).toBe("http://localhost:8000/");
 });
 
 it("rejects a missing code", async () => {
@@ -41,5 +41,5 @@ it("returns to tryhomework after a production callback", async () => {
 
   const response = await GET(new Request("http://localhost:3000/api/auth/callback?code=abc"));
 
-  expect(response.headers.get("location")).toBe("https://tryhomework.vercel.app/groups");
+  expect(response.headers.get("location")).toBe("https://tryhomework.vercel.app/");
 });

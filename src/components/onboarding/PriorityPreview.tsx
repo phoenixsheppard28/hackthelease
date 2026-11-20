@@ -10,7 +10,7 @@ export function PriorityPreview() {
   const [weights, setWeights] = useState({ ...defaultWeights });
   return <div className={styles.shell}>
     <header className={styles.header}>
-      <Link href="/" className={`${styles.brand} ${styles.previewBrand}`}>Hack the Lease</Link>
+      <Link href="/" className={`${styles.brand} ${styles.previewBrand}`}>Homework</Link>
       <span className={styles.previewCaption}>Your priorities</span>
     </header>
     <main className={`${styles.panel} ${styles.priorityPanel}`}>

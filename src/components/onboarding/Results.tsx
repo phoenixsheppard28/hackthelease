@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { saveBrowseContext, type BrowseContext } from "@/lib/matching/browse-context";
-import { Modal, UnstyledButton } from "@mantine/core";
+import { Menu, Modal, UnstyledButton } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { HousingProfile } from "@/lib/contracts/housing-profile";
@@ -13,6 +13,7 @@ import { locationIncomplete, reweightMatches, walkingSummary } from "@/lib/match
 import { useListingEvidence } from "./useListingEvidence";
 import { PrioritySliders } from "./PrioritySliders";
 import { Icon } from "./Icon";
+import { GroupDialog } from "@/components/groups/GroupDialog";
 import surveyStyles from "./Onboarding.module.scss";
 import styles from "./Results.module.scss";
 
@@ -26,7 +27,7 @@ function ListingPhoto({ home, large = false }: { home: ListingMatch; large?: boo
       className={styles.photo} onError={() => setFailed(true)} />;
 }
 
-export function Results({ profile, profileId = "current", onBack, initialBrowse }: { profile: HousingProfile; profileId?: string; onBack: () => void; initialBrowse?: BrowseContext }) {
+export function Results({ profile, profileId = "current", onBack, initialBrowse, initialGroupOpen = false }: { profile: HousingProfile; profileId?: string; onBack: () => void; initialBrowse?: BrowseContext; initialGroupOpen?: boolean }) {
   const queryClient = useQueryClient();
   const [weights, setWeights] = useState<Weights>(() => ({ ...(initialBrowse?.weights ?? profile.weights ?? defaultWeights) }));
   const [query, setQuery] = useState(initialBrowse?.query ?? "");
@@ -36,6 +37,9 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse 
   const [savedError, setSavedError] = useState("");
   const [priorityError, setPriorityError] = useState("");
   const [prioritiesOpen, setPrioritiesOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(initialGroupOpen);
+  const [accountError, setAccountError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
   const group = useQuery<{ group: { id: string; name: string } | null }>({
     queryKey: ["housing-group"], enabled: profileId !== "demo-preview",
     refetchInterval: 15000,
@@ -113,14 +117,39 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse 
     } catch (error) { setPriorityError(error instanceof Error ? error.message : "Could not save priorities."); }
   }
 
+  async function signOut() {
+    setSigningOut(true);
+    setAccountError("");
+    try {
+      const response = await fetch("/api/auth/sign-out", { method: "POST" });
+      if (!response.ok) throw new Error();
+      queryClient.clear();
+      window.location.assign("/");
+    } catch {
+      setAccountError("Couldn’t sign out. Please try again.");
+      setSigningOut(false);
+    }
+  }
+
   return <div className={`${surveyStyles.shell} ${styles.browser}`}>
     <header className={styles.header}>
-      <UnstyledButton className={styles.brand} onClick={onBack}><Icon name="house" size={27} />Hack the Lease</UnstyledButton>
+      <UnstyledButton className={styles.brand} onClick={profileId === "demo-preview" ? onBack : () => setView("homes")}><Icon name="house" size={27} />Homework</UnstyledButton>
       <nav className={styles.tabs} aria-label="Browse listings">
         <UnstyledButton aria-current={view === "homes" ? "page" : undefined} onClick={() => setView("homes")}>Homes</UnstyledButton>
         <UnstyledButton aria-current={view === "saved" ? "page" : undefined} onClick={() => setView("saved")}>Saved{pricedSavedCount ? ` (${pricedSavedCount})` : ""}</UnstyledButton>
       </nav>
-      <UnstyledButton className={styles.student} onClick={onBack} aria-label="Switch student"><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></UnstyledButton>
+      {profileId === "demo-preview" ? <UnstyledButton className={styles.student} onClick={onBack} aria-label="Back to sign in"><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></UnstyledButton> : <div className={styles.accountMenu}>
+        <Menu position="bottom-end" offset={8} width={225} radius={6} shadow="sm" classNames={{ dropdown: surveyStyles.accountDropdown, item: surveyStyles.accountItem }}>
+          <Menu.Target><UnstyledButton className={styles.student} aria-label="Account menu" disabled={signingOut}><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></UnstyledButton></Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item leftSection={<Icon name="sliders" size={16} />} onClick={onBack}>Profile / preferences</Menu.Item>
+            <Menu.Item leftSection={<Icon name="house" size={16} />} onClick={() => setGroupOpen(true)}>{group.isPending ? "Housing group" : groupId ? "Group settings" : "Start a group"}</Menu.Item>
+            <Menu.Divider />
+            <Menu.Item leftSection={<Icon name="logout" size={16} />} onClick={signOut}>Sign out</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+        {accountError && <p className={styles.accountError} role="alert">{accountError}</p>}
+      </div>}
     </header>
     <div className={styles.searchArea}>
       <div className={styles.searchBar} role="search">
@@ -167,5 +196,6 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse 
     <Modal opened={prioritiesOpen} onClose={() => setPrioritiesOpen(false)} title="What matters most to you?" size={740} centered radius={20} closeButtonProps={{ "aria-label": "Close priorities" }}>
       <div className={`${surveyStyles.shell} ${styles.modalBody}`}><div className={styles.demoNote}>{matches.data?.notices.map(notice => <p key={notice}>{notice}</p>)}</div><PrioritySliders weights={weights} onChange={setWeights} />{priorityError && <p role="alert">{priorityError}</p>}<button className={styles.doneButton} onClick={savePriorities}>Done</button></div>
     </Modal>
+    <GroupDialog opened={groupOpen} onClose={() => setGroupOpen(false)} />
   </div>;
 }

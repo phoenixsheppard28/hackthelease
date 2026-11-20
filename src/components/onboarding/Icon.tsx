@@ -1,4 +1,4 @@
-type IconName = "arrow" | "up" | "down" | "check" | "plus" | "enter" | "search" | "heart" | "sliders" | "house" | "user" | "logout";
+type IconName = "arrow" | "up" | "down" | "check" | "plus" | "enter" | "search" | "heart" | "sliders" | "house" | "user" | "logout" | "pencil";
 
 const paths: Record<IconName, string> = {
   arrow: "M3 12h16m-6-6 6 6-6 6",
@@ -13,6 +13,7 @@ const paths: Record<IconName, string> = {
   house: "m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8",
   user: "M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 21v-2a8 6 0 0 1 16 0v2",
   logout: "M9 4H4v16h5M10 12h11m-4-4 4 4-4 4",
+  pencil: "m4 20 4.5-1 10-10a2 2 0 0 0-3-3l-10 10L4 20ZM14 7l3 3",
 };
 
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
