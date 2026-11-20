@@ -28,7 +28,6 @@ export function MatchesPage({ profileId, listingId }: { profileId: string; listi
     retry: false,
     queryFn: async ({ signal }) => {
       const stored = readBrowseContext(profileId);
-      if (stored) return stored;
       if (profileId === "demo-preview") return browseContextSchema.parse({ profile: previewProfile, weights: previewProfile.weights });
       if (!profileId) throw new Error("Choose a student to see personalized matches.");
       const response = await fetch("/api/profiles", { signal });
@@ -36,7 +35,7 @@ export function MatchesPage({ profileId, listingId }: { profileId: string; listi
       const profiles = savedProfileSchema.array().parse(await response.json());
       const saved = profiles.find(item => item.id === profileId);
       if (!saved) throw new Error("Choose a student to see personalized matches.");
-      return browseContextSchema.parse({ profile: saved.profile, weights: saved.profile.weights });
+      return browseContextSchema.parse({ ...stored, profile: saved.profile, weights: saved.profile.weights });
     },
   });
   if (context.isPending) return <p role="status" style={{ padding: 32 }}>Loading your {listingId ? "home" : "matches"}…</p>;

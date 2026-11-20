@@ -6,6 +6,8 @@ import { readListingCatalog } from "@/lib/supabase/listing-catalog";
 import { matchingProfile, rankCatalog } from "./catalog-matches";
 import { addressKey, emptyWalking, walkingMatrix } from "../travel/walking-matrix";
 import { locationScore, reweightMatches, walkingSummary } from "./location-score";
+import { combineGroupMatches } from "./group-ranking";
+import type { SavedProfile } from "@/lib/contracts/housing-profile";
 
 // Slider changes reuse the same lifestyle vector; schedule and identity never enter this request.
 const vectors = new Map<string, { expires: number; value: Promise<number[] | null> }>();
@@ -42,4 +44,18 @@ export async function rankLiveListings(profile: HousingProfile, weights: Weights
     ...(incomplete ? [`${incomplete} homes have incomplete walking estimates. When Location matters, these appear after homes with complete walking estimates; their scores exclude Location.`] : []),
   ];
   return { ...result, matches: reweightMatches(homes, weights), notices };
+}
+
+export async function rankLiveGroup(profiles: SavedProfile[], memberCount: number, listingId?: string) {
+  if (!profiles.length) return combineGroupMatches([]);
+
+  const catalog = await readListingCatalog(listingId);
+  const results = await Promise.all(profiles.map(async ({ profile }) => {
+    const groupProfile = { ...profile, roommates: memberCount - 1, bedrooms: Math.max(profile.bedrooms ?? 0, Math.ceil(memberCount / profile.occupancy)) };
+    return rankCatalog(groupProfile, profile.weights, catalog, await lifestyleVector(groupProfile), Boolean(listingId));
+  }));
+  const combined = combineGroupMatches(results);
+  combined.notices.push("Group location scoring is not connected yet. Location is excluded from group scores.");
+  if (profiles.length < memberCount) combined.notices.unshift(`${profiles.length} of ${memberCount} group members have completed a profile.`);
+  return combined;
 }

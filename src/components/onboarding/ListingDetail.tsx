@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { matchesHref, type BrowseContext } from "@/lib/matching/browse-context";
-import { formatMoney, rentText, rentBasisText } from "@/lib/contracts/listing-match";
+import { formatMoney, rentText, rentBasisText, type ListingMatchesResponse } from "@/lib/contracts/listing-match";
 import { requiredBedrooms } from '@/lib/contracts/housing-profile';
 import { locationIncomplete, reweightMatches } from '@/lib/matching/location-score';
 import { walkingStatusText } from '@/lib/travel/types';
@@ -15,9 +16,40 @@ import styles from "./ListingDetail.module.scss";
 
 export function ListingDetail({ listingId, profileId, context }: { listingId: string; profileId: string; context: BrowseContext }) {
   const { profile, weights } = context;
-  const listing = useListingEvidence(profileId, profile, listingId);
-  const home = reweightMatches(listing.data?.matches ?? [], weights)[0];
+  const queryClient = useQueryClient();
+  const group = useQuery<{ group: { id: string; name: string; members: { id: string }[] } | null }>({
+    queryKey: ["housing-group"], enabled: profileId !== "demo-preview",
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const response = await fetch("/api/groups");
+      if (!response.ok) throw new Error("Could not load your housing group.");
+      return response.json();
+    },
+  });
+  const groupId = group.data?.group?.id;
+  const groupSaves = useQuery<{ ids: string[] }>({
+    queryKey: ["group-saves", groupId], enabled: Boolean(groupId),
+    refetchInterval: groupId ? 15000 : false,
+    queryFn: async () => {
+      const response = await fetch("/api/groups/saves");
+      if (!response.ok) throw new Error("Could not load saved homes.");
+      return response.json();
+    },
+  });
+  const personalListing = useListingEvidence(profileId, profile, listingId, !groupId && (profileId === "demo-preview" || group.isSuccess));
+  const groupListing = useQuery<ListingMatchesResponse>({
+    queryKey: ["live-listing", listingId, groupId], enabled: Boolean(groupId),
+    refetchInterval: groupId ? 15000 : false,
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/groups/rank?listingId=${encodeURIComponent(listingId)}`, { signal });
+      if (!response.ok) throw new Error(response.status === 404 ? "This listing is no longer available." : "Could not load this home. Please try again.");
+      return response.json();
+    },
+  });
+  const listing = groupId ? groupListing : personalListing;
+  const home = groupId ? listing.data?.matches[0] : reweightMatches(listing.data?.matches ?? [], weights)[0];
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [failedPhoto, setFailedPhoto] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const storageKey = `hackthelease:saved:${profileId || profile.name}`;
@@ -33,19 +65,32 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
   }, [storageKey, listingId]);
-  function toggleSaved() {
+  const isSaved = groupId ? Boolean(groupSaves.data?.ids.includes(listingId)) : saved;
+  async function toggleSaved() {
+    if (groupId) {
+      setSaveError("");
+      try {
+        const response = await fetch("/api/groups/saves", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ listingId, saved: !isSaved }) });
+        if (!response.ok) throw new Error("Could not update the group's saved homes.");
+        await queryClient.invalidateQueries({ queryKey: ["group-saves", groupId] });
+      } catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save this home."); }
+      return;
+    }
+
     const ids = readSaved();
     const next = saved ? ids.filter(id => id !== listingId) : [...new Set([...ids, listingId])];
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep the action usable for this visit. */ }
     setSaved(!saved);
   }
   const back = matchesHref(profileId);
+  if (group.isError) return <main className={styles.unavailable}><p role="alert">Could not load your housing group.</p><button onClick={() => group.refetch()}>Try again</button></main>;
   if (listing.isPending) return <main className={styles.unavailable}><p role="status">Loading this home…</p><Link href={back}>Back to matches</Link></main>;
-  if (listing.isError || !home) return <main className={styles.unavailable}><p role="alert">{listing.error?.message || "This listing is unavailable."}</p><button onClick={() => listing.refetch()}>Try again</button> <Link href={back}>Back to matches</Link></main>;
-  const budget = profile.basis === "Just me" ? profile.budget : profile.budget / (profile.roommates + 1);
+  if (listing.isError || !home || home.rent === null) return <main className={styles.unavailable}><p role="alert">{listing.error?.message || "This listing is unavailable."}</p><button onClick={() => listing.refetch()}>Try again</button> <Link href={back}>Back to matches</Link></main>;
+  const householdCount = groupId ? group.data?.group?.members.length ?? profile.roommates + 1 : profile.roommates + 1;
+  const budget = profile.basis === "Just me" ? profile.budget : profile.budget / householdCount;
   const difference = home.perPersonRent ? budget - home.perPersonRent.max : null;
   const supported = home.components.filter(component => component.score !== null && component.weight > 0).sort((a, b) => b.weight - a.weight);
-  const roomsNeeded = requiredBedrooms(profile);
+  const roomsNeeded = Math.max(profile.bedrooms ?? 0, requiredBedrooms({ ...profile, bedrooms: undefined, roommates: householdCount - 1 }));
   const photo = home.images[photoIndex] ?? home.image;
   const phone = home.contact?.phone?.replace(/[^+\d]/g, "");
   const email = home.contact?.email;
@@ -68,7 +113,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
             </div>
             {home.images.length > 1 && <div className={styles.photoPicker} aria-label="Property photos">{home.images.map((image, index) => <button key={image} aria-label={`Show photo ${index + 1}`} aria-pressed={index === photoIndex} onClick={() => { setPhotoIndex(index); setFailedPhoto(false); }}><Image src={image} alt="" width={56} height={56} /></button>)}</div>}
           </div>
-          <section className={styles.places}><h2>Your places, from here</h2>
+          <section className={styles.places}><h2>{groupId ? "Travel from this home" : "Your places, from here"}</h2>{!groupId && <>
             <div className={styles.placeGrid}>{home.destinations.map(place => {
               const limit = profile.walk[place.name];
               const available = place.status === 'ok' && place.minutes !== null;
@@ -79,16 +124,18 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
               </div>;
             })}</div>
             <p className={styles.footnote}>Walking estimates: Google Maps. Routes may not include all sidewalks or pedestrian paths. Times are to the building; allow extra time for entry, weather, and accessibility needs.</p>
+            </>}
             <TravelTimes key={home.id} origin={home.address} />
           </section>
         </section>
         <section className={styles.details} aria-label="Home details">
           <div className={styles.location}><span><Icon name="house" size={19} /></span>{home.area}</div>
-          <div className={styles.title}><div><h1>{home.name}</h1><p><strong>{home.score === null ? "Match not scored" : locationIncomplete(home, weights) ? `${home.score} · Partial score` : `${home.score}% match`}</strong> <span>for {profile.name}</span></p></div><button className={styles.save} aria-label={`${saved ? "Unsave" : "Save"} ${home.name}`} aria-pressed={saved} onClick={toggleSaved}><Icon name="heart" size={21} /></button></div>
+          <div className={styles.title}><div><h1>{home.name}</h1><p><strong>{home.score === null ? "Match not scored" : !groupId && locationIncomplete(home, weights) ? `${home.score} · Partial score` : `${home.score}% match`}</strong> <span>for {groupId ? group.data?.group?.name : profile.name}</span></p>{home.scoreCoverage && <p>{home.scoreCoverage.scored} of {home.scoreCoverage.total} member profiles scored</p>}</div><button className={styles.save} aria-label={`${isSaved ? "Unsave" : "Save"} ${home.name}`} aria-pressed={isSaved} disabled={Boolean(groupId && (groupSaves.isPending || groupSaves.isError))} onClick={toggleSaved}><Icon name="heart" size={21} /></button></div>
+          {(saveError || groupSaves.isError) && <p role="alert">{saveError || "Could not load the group's saved homes."}</p>}
           <div className={styles.rent}>{rentText(home)}<span>{rentBasisText(home)}</span></div>
           <p className={styles.budget}>{difference === null ? "Rent comparison unavailable." : difference === 0 ? "At your rent limit, before additional fees." : `${formatMoney(Math.abs(difference))} ${difference > 0 ? "below" : "above"} your per-person rent limit, before additional fees.`}</p>
-          {home.rentBasis === "per_unit" && home.perPersonRent && <p className={styles.footnote}>Estimated share: {formatMoney(home.perPersonRent.min)}{home.perPersonRent.max !== home.perPersonRent.min ? `–${formatMoney(home.perPersonRent.max)}` : ""} / person, split equally across {profile.roommates + 1}. Confirm permitted occupancy and fees.</p>}
-          <dl className={styles.facts}><div><dt>Bedrooms</dt><dd>{home.beds ?? "Not listed"}</dd></div><div><dt>Your group</dt><dd>{profile.roommates ? `You + ${profile.roommates} roommate${profile.roommates === 1 ? "" : "s"}` : "Just you"}</dd></div><div><dt>Available from</dt><dd>{home.availableFrom ?? "Not listed"}</dd></div></dl>
+          {home.rentBasis === "per_unit" && home.perPersonRent && <p className={styles.footnote}>Estimated share: {formatMoney(home.perPersonRent.min)}{home.perPersonRent.max !== home.perPersonRent.min ? `–${formatMoney(home.perPersonRent.max)}` : ""} / person, split equally across {householdCount}. Confirm permitted occupancy and fees.</p>}
+          <dl className={styles.facts}><div><dt>Bedrooms</dt><dd>{home.beds ?? "Not listed"}</dd></div><div><dt>Your group</dt><dd>{householdCount > 1 ? `You + ${householdCount - 1} roommate${householdCount === 2 ? "" : "s"}` : "Just you"}</dd></div><div><dt>Available from</dt><dd>{home.availableFrom ?? "Not listed"}</dd></div></dl>
           <div className={styles.actions}>
             <button className={styles.primary} disabled aria-describedby="simulation-status">Simulate a typical day</button>
             <p id="simulation-status" className={styles.footnote}>Day simulation isn’t connected yet.</p>
@@ -96,10 +143,10 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
             {phone && /\d{7,}/.test(phone) ? <a className={styles.secondary} href={`tel:${phone}`}>Call landlord</a> : <button className={styles.secondary} disabled>Phone unavailable</button>}
             <p className={styles.footnote}>{home.contact?.name || sourceName || "Listing contact"}{home.contact?.phone ? ` · ${home.contact.phone}` : ""}</p>
           </div>
-          <section className={styles.description}><h2>Picked around your priorities</h2><p>{supported.length ? `Your score currently uses ${supported.map(component => component.label.toLowerCase()).join(" and ")}, weighted by your sliders.` : "Your selected priorities cannot be scored with the available data yet."} {home.beds === null ? "The bedroom count isn’t listed." : home.beds >= roomsNeeded ? `The listed ${home.beds} bedrooms meet your group’s need for ${roomsNeeded}.` : `Your group needs ${roomsNeeded} bedrooms; this listing has ${home.beds}.`}</p><p>{home.components.find(component => component.label === 'Location')?.score === null ? 'Location needs complete walking estimates for your three destinations.' : 'Location measures walking convenience across your three destinations equally, with an extra penalty for exceeding a walking preference.'} {home.components.find(component => component.label === "Lifestyle")?.score === null && "Semantic lifestyle matching is unavailable."}</p></section>
+          <section className={styles.description}><h2>Picked around your priorities</h2><p>{groupId ? "The group score averages each member's match score. Confirmed budget or bedroom failures remove a home from the group shortlist." : supported.length ? `Your score currently uses ${supported.map(component => component.label.toLowerCase()).join(" and ")}, weighted by your sliders.` : "Your selected priorities cannot be scored with the available data yet."} {home.beds === null ? "The bedroom count isn’t listed." : home.beds >= roomsNeeded ? `The listed ${home.beds} bedrooms meet your group’s need for ${roomsNeeded}.` : `Your group needs ${roomsNeeded} bedrooms; this listing has ${home.beds}.`}</p><p>{groupId ? "Group location scoring is not connected yet." : home.components.find(component => component.label === "Location")?.score === null ? "Location needs complete walking estimates for your three destinations." : "Location measures walking convenience across your three destinations equally, with an extra penalty for exceeding a walking preference."} {!groupId && home.components.find(component => component.label === "Lifestyle")?.score === null && "Semantic lifestyle matching is unavailable."}</p></section>
           {home.sourceUrl ? <a className={styles.source} href={home.sourceUrl} target="_blank" rel="noreferrer">View original posting <span>↗</span></a> : <button className={styles.source} disabled>Original posting unavailable</button>}
           <p className={styles.footnote}>{sourceName} · Last checked {date}</p>
-          <details className={styles.breakdown}><summary>Why it ranks here</summary><dl>{home.components.map(component => <div key={component.label}><dt>{component.label}<small>Importance {component.weight}/100</small></dt><dd>{component.score === null ? "Not scored" : `${component.score}/100`}</dd></div>)}</dl><p className={styles.footnote}>Available category scores are weighted by your sliders. Unknown budget or bedroom evidence receives a neutral score. Incomplete location and unavailable lifestyle scores are excluded. With Location above zero, homes with complete walking estimates rank ahead of those with incomplete estimates. Scores measure fit, not probability.</p></details>
+          {!groupId && <details className={styles.breakdown}><summary>Why it ranks here</summary><dl>{home.components.map(component => <div key={component.label}><dt>{component.label}<small>Importance {component.weight}/100</small></dt><dd>{component.score === null ? "Not scored" : `${component.score}/100`}</dd></div>)}</dl><p className={styles.footnote}>Available category scores are weighted by your sliders. Unknown budget or bedroom evidence receives a neutral score. Incomplete location and unavailable lifestyle scores are excluded. With Location above zero, homes with complete walking estimates rank ahead of those with incomplete estimates. Scores measure fit, not probability.</p></details>}
           {home.description && <section className={styles.description}><h2>About this home</h2><p>{home.description}</p></section>}
           {home.features.length > 0 && <details className={styles.breakdown}><summary>Features from the listing</summary><ul>{home.features.map(feature => <li key={feature}>{feature}</li>)}</ul></details>}
         </section>
