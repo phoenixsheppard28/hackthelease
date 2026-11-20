@@ -81,7 +81,7 @@ export async function sendInquiry(userId: string, id: string) {
 async function applyListingStatusReply(inquiry: Inquiry, reply: Reply) {
   const proposal = reply.proposal;
   if (inquiry.is_test || !reply.expected_sender || !proposal?.matchesUnitAndDates) return;
-  if (!(proposal.status === 'unavailable' && (proposal.tenantsRenewing || proposal.leaseSigned)) && !['available', 'renewal_undecided'].includes(proposal.status)) return;
+  if (!['unavailable', 'available', 'renewal_undecided'].includes(proposal.status)) return;
   await storage('rpc/apply_listing_availability_reply', '', { method: 'POST', body: JSON.stringify({ p_message_id: reply.message_id }) });
 }
 

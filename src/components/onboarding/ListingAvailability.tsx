@@ -1,7 +1,7 @@
 import { currentListingAvailability, type ListingAvailability as AvailabilityReport } from '@/lib/availability/listing-status';
 import styles from './ListingAvailability.module.scss';
 
-const labels: Record<string, string> = { lease_signed: 'Not available · Lease signed', tenants_renewing: 'Tenants renewing', available: 'Available · Landlord confirmed' };
+const labels: Record<string, string> = { lease_signed: 'Not available · Lease signed', unavailable: 'Not available', tenants_renewing: 'Tenants renewing', available: 'Available · Landlord confirmed' };
 
 export function ListingAvailability({ report, compact = false }: { report?: AvailabilityReport | null; compact?: boolean }) {
   const current = currentListingAvailability(report);

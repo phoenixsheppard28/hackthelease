@@ -81,12 +81,17 @@ describe('reply trust and publication', () => {
   it.each([
     { isTest: true, matches: true, renewing: true },
     { isTest: false, matches: false, renewing: true },
-    { isTest: false, matches: true, renewing: false },
-  ])('does not auto-flag test, ambiguous, or non-renewal mail: %o', async ({ isTest, matches, renewing }) => {
+  ])('does not auto-flag test or ambiguous mail: %o', async ({ isTest, matches, renewing }) => {
     vi.mocked(storage).mockResolvedValue([]);
     vi.mocked(proposeAvailability).mockResolvedValue({ status: 'unavailable', evidence: 'Reply.', matchesUnitAndDates: matches, tenantsRenewing: renewing, leaseSigned: false });
     await recordReply({ ...inquiry, is_test: isTest }, message);
     expect(vi.mocked(storage).mock.calls.some(call => call[0] === 'rpc/apply_listing_availability_reply')).toBe(false);
+  });
+  it('flags an unavailable home even when the landlord gives no reason', async () => {
+    vi.mocked(storage).mockResolvedValue([]);
+    vi.mocked(proposeAvailability).mockResolvedValue({ status: 'unavailable', evidence: 'Reply.', matchesUnitAndDates: true, tenantsRenewing: false, leaseSigned: false });
+    await recordReply(inquiry, message);
+    expect(storage).toHaveBeenCalledWith('rpc/apply_listing_availability_reply', '', expect.any(Object));
   });
   it('passes newer availability corrections to the atomic update', async () => {
     vi.mocked(storage).mockResolvedValue([]);

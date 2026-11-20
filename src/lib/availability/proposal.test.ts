@@ -27,7 +27,7 @@ describe('renewal evidence extraction', () => {
     response({ status: 'unavailable', evidence, matchesUnitAndDates: true, tenantsRenewing: true });
     expect((await proposeAvailability(inquiry, evidence))?.tenantsRenewing).toBe(true);
     const payload = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(payload.instructions).toContain('not renewing');
+    expect(payload.instructions).toContain('re-leasing');
     expect(payload.text.format.schema.required).toContain('tenantsRenewing');
   });
   it.each([

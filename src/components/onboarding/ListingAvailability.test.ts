@@ -16,6 +16,9 @@ describe('tenant renewal listing flag', () => {
       expect(render(signed, compact)).not.toContain('Tenants renewing');
     }
   });
+  it('marks an unavailable home without a known reason', () => {
+    expect(render({ ...report, status: 'unavailable' }, true)).toContain('Not available');
+  });
   it('marks landlord-confirmed availability', () => {
     expect(render({ ...report, status: 'available' }, true)).toContain('Available · Landlord confirmed');
   });
