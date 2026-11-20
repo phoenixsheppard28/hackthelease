@@ -28,4 +28,3 @@ export async function currentStudent(): Promise<{ id: string; email: string } | 
   if (error || !data.user?.email) return null;
   return { id: data.user.id, email: data.user.email.toLowerCase() };
 }
-

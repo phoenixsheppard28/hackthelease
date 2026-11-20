@@ -1,5 +1,5 @@
 import type { HousingProfile } from "@/lib/contracts/housing-profile";
-import { campusHubs } from "@/lib/contracts/housing-profile";
+import { campusHubs, requiredBedrooms } from "@/lib/contracts/housing-profile";
 import type { Weights } from "@/lib/contracts/matching-weights";
 import { listingMedia } from "./listing-media";
 
@@ -36,7 +36,7 @@ export function rankDemoListings(profile: HousingProfile, weights: Weights) {
     const scores = [
       proximity.length ? mean(proximity) : 1,
       Math.max(0, 1 - home.rent / budget * .45 - Math.max(0, home.rent / budget - 1)),
-      mean([profile.type === "Either" || profile.type === home.type ? 1 : 0, home.beds >= Math.ceil((profile.roommates + 1) / profile.occupancy) ? 1 : 0]),
+      mean([profile.type === "Either" || profile.type === home.type ? 1 : 0, home.beds >= requiredBedrooms(profile) ? 1 : 0]),
       mean(lifestyle),
     ];
     const score = Math.round(100 * scores.reduce((sum, value, index) => sum + value * Object.values(weights)[index], 0) / total);

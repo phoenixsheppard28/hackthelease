@@ -1,4 +1,4 @@
-import type { HousingProfile } from "@/lib/contracts/housing-profile";
+import { requiredBedrooms, type HousingProfile } from "../contracts/housing-profile";
 import type { HousingProfile as CoreProfile } from "@/lib/contracts/housing";
 import type { ListingMatch, ListingMatchesResponse } from "@/lib/contracts/listing-match";
 import type { Weights } from "@/lib/contracts/matching-weights";
@@ -8,7 +8,7 @@ import { cosineSimilarity, rankListings } from "./rank";
 export function matchingProfile(profile: HousingProfile): CoreProfile {
   return {
     budgetMonthlyPerPerson: profile.basis === "Just me" ? profile.budget : profile.budget / (profile.roommates + 1),
-    minimumBeds: Math.ceil((profile.roommates + 1) / profile.occupancy),
+    minimumBeds: requiredBedrooms(profile),
     roommateCount: profile.roommates, moveInDate: null, requiresAccessibleUnit: false,
     preferredAmenities: [],
     lifestyleText: [profile.interests, `Meals: ${profile.food}. Going out: ${profile.night}.`].filter(Boolean).join("\n"),
@@ -23,7 +23,7 @@ function safeSource(value: string): string | null {
 export function rankCatalog(profile: HousingProfile, weights: Weights, catalog: CatalogListing[], embedding: number[] | null, detail = false): ListingMatchesResponse {
   const coreProfile = matchingProfile(profile);
   const ranked = new Map(rankListings(coreProfile, catalog, embedding).map(result => [result.listingId, result]));
-  const notices = ["Location scoring and walking times are not connected yet."];
+  const notices: string[] = [];
   if (!embedding) notices.push("Semantic lifestyle matching is unavailable. Lifestyle is not included in the score.");
   notices.push("Home fit currently checks bedrooms. House or apartment type and room-sharing rules need verification.");
   const matches: ListingMatch[] = [];
@@ -47,7 +47,6 @@ export function rankCatalog(profile: HousingProfile, weights: Weights, catalog: 
     flags.push("Property type and permitted occupancy need verification.");
     if (listing.availableFrom && listing.availableFrom < new Date().toISOString().slice(0, 10)) flags.push("The listed availability date is in the past; confirm current availability.");
     if (profile.bus !== null && profile.car === "No") flags.push("Distance to a bus stop needs verification.");
-    if (Object.keys(profile.walk).length) flags.push("Your walking limits have not been checked yet.");
     const reasons = result ? result.supportingFacts.slice(0, 4) : [];
     const unit = listing.unit && !/^(null|undefined|n\/a)$/i.test(listing.unit.trim()) ? listing.unit : null;
     matches.push({
@@ -59,7 +58,7 @@ export function rankCatalog(profile: HousingProfile, weights: Weights, catalog: 
       features: [...new Set([...listing.features, ...Object.entries(listing.amenities).filter(([, present]) => present === true).map(([name]) => name)])],
       contact: listing.contact, sourceUrl: listing.sources.map(source => safeSource(source.url)).find(Boolean) ?? null,
       sourceFetchedAt: entry.refreshedAt, availableFrom: listing.availableFrom, score, components,
-      destinations: profile.hubs.map(name => ({ name, minutes: null })), reasons, verificationFlags: [...new Set(flags)], firmChecks: result?.firmChecks ?? {},
+      destinations: profile.hubs.map(name => ({ name, minutes: null, distanceMeters: null, status: 'unavailable', checkedAt: null })), reasons, verificationFlags: [...new Set(flags)], firmChecks: result?.firmChecks ?? {},
     });
   }
   matches.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.id.localeCompare(b.id));

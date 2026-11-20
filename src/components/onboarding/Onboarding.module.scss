@@ -40,6 +40,11 @@
   font-weight: 700;
   white-space: nowrap;
 }
+.account { position: absolute; right: 16px; top: 10px; z-index: 20; }
+.accountButton { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #666; border-radius: 50%; background: #fff; color: #191919; cursor: pointer; &:hover { border-color: #191919; } &:focus-visible { outline: 2px solid #191919; outline-offset: 3px; } &:disabled { opacity: .5; cursor: wait; } }
+.accountDropdown { border: 1px solid #666; background: #fff; color: #191919; padding: 5px; }
+.accountItem { font-family: inherit; font-size: 14px; border-radius: 4px; padding: 11px 10px; }
+.accountError { position: absolute; right: 0; width: 225px; background: #fff; color: #ad3333; border: 1px solid #666; border-radius: 6px; padding: 12px; font-size: 13px; }
 .stages {
   display: flex;
   align-items: center;
@@ -330,7 +335,7 @@
 }
 .calendarLocations { display: grid; gap: 16px; margin-top: 24px; }
 @media (max-width: 1100px) {
-  .header { justify-content: flex-end; }
+  .header { justify-content: flex-end; padding-right: 70px; }
   .stages {
     gap: 10px;
     li { font-size: 12px; gap: 6px; }
@@ -339,7 +344,7 @@
   .brand { font-size: 15px; }
 }
 @media (max-width: 800px) {
-  .header { height: 88px; justify-content: center; align-items: flex-end; padding-bottom: 14px; }
+  .header { height: 88px; justify-content: center; align-items: flex-end; padding: 0 16px 14px; }
   .brand { top: 12px; }
   .stages { gap: 8px; li + li::before { width: 16px; } }
   .panel { min-height: calc(100svh - 104px); }

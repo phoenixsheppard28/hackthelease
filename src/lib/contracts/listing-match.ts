@@ -1,5 +1,6 @@
 import type { Listing, MatchResult } from "./housing";
 import type { Weights } from "./matching-weights";
+import type { DestinationWalk } from "../travel/types";
 
 export type ListingMatch = {
   id: string;
@@ -25,7 +26,7 @@ export type ListingMatch = {
   score: number | null;
   scoreCoverage?: { scored: number; total: number };
   components: { label: keyof Weights; score: number | null; weight: number }[];
-  destinations: { name: string; minutes: number | null }[];
+  destinations: DestinationWalk[];
   reasons: string[];
   verificationFlags: string[];
   firmChecks: MatchResult["firmChecks"];

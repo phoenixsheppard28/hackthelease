@@ -5,10 +5,12 @@ import Link from "next/link";
 import { saveBrowseContext, type BrowseContext } from "@/lib/matching/browse-context";
 import { Modal, UnstyledButton } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { HousingProfile } from "@/lib/contracts/housing-profile";
 import { rentText, rentBasisText, type ListingMatch, type ListingMatchesResponse } from "@/lib/contracts/listing-match";
 import { defaultWeights, type Weights } from "@/lib/contracts/matching-weights";
+import { locationIncomplete, reweightMatches, walkingSummary } from "@/lib/matching/location-score";
+import { useListingEvidence } from "./useListingEvidence";
 import { PrioritySliders } from "./PrioritySliders";
 import { Icon } from "./Icon";
 import surveyStyles from "./Onboarding.module.scss";
@@ -27,11 +29,6 @@ function ListingPhoto({ home, large = false }: { home: ListingMatch; large?: boo
 export function Results({ profile, profileId = "current", onBack, initialBrowse }: { profile: HousingProfile; profileId?: string; onBack: () => void; initialBrowse?: BrowseContext }) {
   const queryClient = useQueryClient();
   const [weights, setWeights] = useState<Weights>(() => ({ ...(initialBrowse?.weights ?? profile.weights ?? defaultWeights) }));
-  const [rankingWeights, setRankingWeights] = useState(weights);
-  useEffect(() => {
-    const timer = setTimeout(() => setRankingWeights(weights), 200);
-    return () => clearTimeout(timer);
-  }, [weights]);
   const [query, setQuery] = useState(initialBrowse?.query ?? "");
   const [homeType, setHomeType] = useState<BrowseContext["homeType"]>("All homes");
   const [view, setView] = useState<"homes" | "saved">(initialBrowse?.view ?? "homes");
@@ -84,25 +81,25 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse 
     setSaved(next);
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Favorites still work for this visit. */ }
   }
-  const matches = useQuery<ListingMatchesResponse>({
-    queryKey: ["live-rank", groupId ?? profile, groupId ? null : rankingWeights],
-    enabled: profileId === "demo-preview" || group.isSuccess,
+  const personalMatches = useListingEvidence(profileId, profile, undefined, !groupId && (profileId === "demo-preview" || group.isSuccess));
+  const groupMatches = useQuery<ListingMatchesResponse>({
+    queryKey: ["live-rank", groupId], enabled: Boolean(groupId),
     refetchInterval: groupId ? 15000 : false,
     queryFn: async ({ signal }) => {
-      const response = groupId ? await fetch("/api/groups/rank", { signal })
-        : await fetch("/api/matches", { method: "POST", signal,
-          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profile, weights: rankingWeights }) });
+      const response = await fetch("/api/groups/rank", { signal });
       if (!response.ok) throw new Error("Could not load matches.");
       return response.json();
     },
   });
-  const pricedMatches = (matches.data?.matches || []).filter(home => home.rent !== null);
+  const matches = groupId ? groupMatches : personalMatches;
+  const ranked = useMemo(() => groupId ? matches.data?.matches ?? [] : reweightMatches(matches.data?.matches ?? [], weights), [groupId, matches.data, weights]);
+  const pricedMatches = ranked.filter(home => home.rent !== null);
   const pricedSavedCount = pricedMatches.filter(home => savedIds.includes(home.id)).length;
   const homes = pricedMatches.filter(home =>
     (view !== "saved" || savedIds.includes(home.id)) &&
     (homeType === "All homes" || home.type === homeType) &&
     `${home.name} ${home.area} Ann Arbor`.toLowerCase().includes(query.trim().toLowerCase())
-  ).sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  );
   const allZero = !groupId && Object.values(weights).every(value => value === 0);
 
   async function savePriorities() {
@@ -135,16 +132,18 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse 
     </div>
     <main className={styles.main}>
       <div className={styles.headingRow}>
-        <div><h1>{view === "saved" ? groupId ? "Your group's saved homes" : "Your saved homes" : groupId ? `${group.data?.group?.name} matches` : "Your best matches in Ann Arbor"}</h1><p>{matches.isPending ? "Finding your matches…" : `${homes.length} ${homes.length === 1 ? "home" : "homes"}`}<span> · Best match first</span></p></div>
+        <div><h1>{view === "saved" ? groupId ? "Your group's saved homes" : "Your saved homes" : groupId ? `${group.data?.group?.name} matches` : "Your best matches in Ann Arbor"}</h1><p>{matches.isPending ? "Finding homes and checking your priorities…" : `${homes.length} ${homes.length === 1 ? "home" : "homes"}`}<span>{allZero ? ' · Set priorities to rank' : ' · Best match first'}</span></p></div>
         <UnstyledButton className={styles.prioritiesButton} onClick={() => setPrioritiesOpen(true)}><Icon name="sliders" size={18} />Your priorities</UnstyledButton>
       </div>
       <p className={styles.demoNote}>Live listings · {matches.data ? pricedMatches.length : "…"} matching homes with listed rent</p>
       {matches.data && <details className={styles.matchingNotes}><summary>What’s included in your match?</summary>{matches.data.notices.map(notice => <p key={notice}>{notice}</p>)}</details>}
+      {matches.data?.matches.some(home => home.destinations.some(place => place.status === 'ok')) && <p className={styles.demoNote}>Walking estimates: Google Maps · May not include all sidewalks or pedestrian paths. Building access and weather can change your trip.</p>}
       <div aria-live="polite" className={styles.loadingStatus}>{matches.isFetching && !matches.isPending ? "Updating your matches…" : ""}</div>
       {(group.isError || groupSaves.isError) && <p role="alert">Could not load your group. <button onClick={() => { group.refetch(); groupSaves.refetch(); }}>Try again</button></p>}
       {savedError && <p role="alert">{savedError}</p>}
       {matches.isPending ? <div className={styles.empty}>Finding homes that fit your priorities…</div>
         : matches.isError ? <div className={styles.empty} role="alert"><h2>We couldn’t load your matches.</h2><button onClick={() => matches.refetch()}>Try again</button></div>
+        : allZero ? <div className={styles.empty}><h2>Choose what matters to you.</h2><p>Give at least one priority a value above zero.</p><button onClick={() => setPrioritiesOpen(true)}>Adjust priorities</button></div>
         : !homes.length ? <div className={styles.empty}><h2>{allZero ? "Choose what matters to you." : view === "saved" && !pricedSavedCount ? "No saved homes with listed rent." : "No homes match this search."}</h2><p>{allZero ? "Give at least one priority a value above zero." : view === "saved" && !pricedSavedCount ? "Save a home with listed rent to see it here." : "Try another search, or review your budget and bedroom needs."}</p><button onClick={() => {
           if (allZero) setPrioritiesOpen(true);
           else { setQuery(""); setHomeType("All homes"); setView("homes"); }
@@ -154,14 +153,14 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse 
           return <article key={home.id} className={styles.card}>
             <div className={styles.imageWrap}>
               <Link className={styles.openPhoto} aria-label={`View ${home.name}`} href={`/listings/${home.id}?profile=${encodeURIComponent(profileId)}`}><ListingPhoto home={home} /></Link>
-              <span className={styles.matchBadge}>{home.score === null ? "Unscored" : `${home.score}% match`}</span>
+              <span className={styles.matchBadge}>{home.score === null ? "Unscored" : !groupId && locationIncomplete(home, weights) ? `${home.score} · Partial score` : `${home.score}% match`}</span>
               <UnstyledButton className={styles.favorite} data-saved={favorite} aria-label={`${favorite ? "Unsave" : "Save"} ${home.name}`} aria-pressed={favorite} disabled={Boolean(groupId && (groupSaves.isPending || groupSaves.isError))} onClick={() => toggleSaved(home.id)}><Icon name="heart" size={23} /></UnstyledButton>
             </div>
             <Link className={styles.cardTitle} href={`/listings/${home.id}?profile=${encodeURIComponent(profileId)}`}>{home.name}</Link>
             <p>{home.area} · {home.beds === null ? "Bedrooms unconfirmed" : `${home.beds} bedrooms`}</p>
+            {!groupId && <p className={styles.verification}>{walkingSummary(home, profile.walk)}</p>}
             {home.scoreCoverage && <p>{home.scoreCoverage.scored} of {home.scoreCoverage.total} member profiles scored</p>}
             <p className={styles.price}><strong>{rentText(home)}</strong>{rentBasisText(home)}</p>
-            {home.verificationFlags.length > 0 && <p className={styles.verification}>Needs verification</p>}
           </article>;
         })}</div>}
     </main>

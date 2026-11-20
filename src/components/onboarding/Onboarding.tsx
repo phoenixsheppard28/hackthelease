@@ -3,6 +3,7 @@
 import {
   ActionIcon,
   Button,
+  Menu,
   NativeSelect,
   NumberInput,
   Textarea,
@@ -76,6 +77,8 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
+  const [accountError, setAccountError] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const content = useRef<HTMLElement>(null);
   const transitioning = useRef(false);
@@ -111,6 +114,19 @@ export function Onboarding() {
       queryClient.invalidateQueries({ queryKey: ["live-rank"] });
     },
   });
+
+  async function signOut() {
+    setSigningOut(true);
+    setAccountError("");
+    try {
+      await requestJson("/api/auth/sign-out", { method: "POST" });
+      queryClient.clear();
+      window.location.assign("/");
+    } catch {
+      setAccountError("Couldn’t sign out. Please try again.");
+      setSigningOut(false);
+    }
+  }
 
   const navigate = useCallback(async (change: () => void, movement = 1) => {
     if (transitioning.current || saving.current) return;
@@ -284,6 +300,7 @@ export function Onboarding() {
     )
       return;
     const target = event.target as HTMLElement;
+    if (target.closest('[role="menu"], [data-account-menu]')) return;
     if (target.matches("select")) return;
     const editing = target.matches("input,textarea");
     if (event.key === "Enter") {
@@ -384,7 +401,40 @@ export function Onboarding() {
             </li>
           ))}
         </ol>
-        <a href="/groups">Your housing group</a>
+        <div className={styles.account} data-account-menu>
+          <Menu position="bottom-end" offset={8} width={225} radius={6} shadow="sm" classNames={{ dropdown: styles.accountDropdown, item: styles.accountItem }}>
+            <Menu.Target>
+              <UnstyledButton className={styles.accountButton} aria-label="Account menu" disabled={saveProfile.isPending || signingOut}>
+                <Icon name="user" size={19} />
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item leftSection={<Icon name="sliders" size={16} />} disabled={profiles.isPending || profiles.isError} onClick={() => {
+                const person = profiles.data?.find(person => person.id === profileId) ?? profiles.data?.[0];
+                if (person) {
+                  navigate(() => {
+                    setProfile(person.profile);
+                    setProfileId(person.id);
+                    setEditing(true);
+                    setScreen("edit");
+                  });
+                } else if (screen === "home") {
+                  navigate(() => {
+                    setEditing(false);
+                    setProfile({ weights: { ...defaultWeights } });
+                    setProfileId(crypto.randomUUID());
+                    setStep(0);
+                    setCalendarEvents([]);
+                    setScreen("survey");
+                  });
+                }
+              }}>Profile / preferences</Menu.Item>
+              <Menu.Divider />
+              <Menu.Item leftSection={<Icon name="logout" size={16} />} onClick={signOut}>Sign out</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+          {accountError && <p className={styles.accountError} role="alert">{accountError}</p>}
+        </div>
       </header>
       <main
         className={`${styles.panel} ${screen === "survey" && question.kind === "priorities" ? styles.prioritySurvey : ""} ${screen === "edit" ? styles.editPanel : ""}`}
