@@ -262,7 +262,9 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
       bus: profile.car === "No" ? (profile.bus ?? null) : null,
       group: profile.roommates ? profile.group : null,
       interests: profile.interests || "",
-      schedule: editing ? profile.schedule : calendarEvents.filter((event) => event.hub),
+      schedule: editing && (question.kind !== "calendar" || !calendar.data?.connected || !calendarEvents.length)
+        ? profile.schedule
+        : calendarEvents.filter((event) => event.hub),
     });
     if (!completed.success) {
       setError(
@@ -540,14 +542,14 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
                 <span className={styles.shortcut}><Icon name="arrow" size={14} /></span>
                 View updated matches
               </UnstyledButton>
-              {questions.filter(item => item.kind !== "calendar").map(item => {
+              {questions.map(item => {
                 const value = profile[item.key as keyof ProfileDraft];
                 return <UnstyledButton key={item.key} className={styles.choice} onClick={() => navigate(() => {
                   setStep(questions.findIndex(question => question.key === item.key));
                   setScreen("survey");
                 })}>
                   <span className={styles.choiceLabel}>{item.title}</span>
-                  <span className={styles.editValue}>{Array.isArray(value) ? value.join(", ") : typeof value === "string" || typeof value === "number" ? value : "Edit"}</span>
+                  <span className={styles.editValue}>{item.kind === "calendar" ? "Connect or update" : Array.isArray(value) ? value.join(", ") : typeof value === "string" || typeof value === "number" ? value : "Edit"}</span>
                 </UnstyledButton>;
               })}
             </div>
