@@ -19,11 +19,28 @@ values
   ('The Haven of Ann Arbor', 'https://www.havenofannarbor.com/floorplans/', array['www.havenofannarbor.com'])
 on conflict (inventory_url) do nothing;
 
-update public.sources set listing_patterns = array['^/searchlisting$', '^/apartments/mi/ann-arbor/']
-where inventory_url = 'https://residential.oxfordcompanies.com/searchlisting';
-
-update public.sources set listing_patterns = array['^/8f47a0401c/l$', '^/l/.+-ann-arbor-mi-']
-where inventory_url = 'https://showmojo.com/8f47a0401c/l';
+update public.sources as source
+set listing_patterns = patterns.paths
+from (values
+  ('Oxford Companies', array['^/searchlisting$', '^/apartments/mi/ann-arbor/']),
+  ('Cabrio Properties', array['^/8f47a0401c/l$', '^/l/.+-ann-arbor-mi-']),
+  ('University of Michigan Off-Campus Housing', array['^/listing']),
+  ('Pappas Rentals', array['^/$', '^/[0-9].*\.html$', '^/kingsley\.html$']),
+  ('CMB Ann Arbor Apartments', array['^/all-properties/?$', '^/properties/']),
+  ('Varsity Management', array['^/portfolio$', '^/[0-9]']),
+  ('McKinley State Street Village', array['^/apartments/michigan/ann-arbor/state-street-village/']),
+  ('Landmark Ann Arbor', array['^/floorplans/']),
+  ('Foundry Lofts', array['^/floorplans/']),
+  ('The Yard on South Main', array['^/floor-plans/', '^/floor-plan/']),
+  ('Six11', array['^/floor-plans/', '^/floor-plan/']),
+  ('Chapter Ann Arbor', array['^/floor-plans/', '^/floor-plan/']),
+  ('The Standard at Ann Arbor', array['^/floorplans/']),
+  ('Vic Village North', array['^/$', '^/floor-plans/?$', '^/cms-floor-plans/']),
+  ('Woodbury Gardens', array['^/Floor-plans\.aspx$']),
+  ('Ann Arbor City Club', array['^/floorplans']),
+  ('The Haven of Ann Arbor', array['^/floorplans/'])
+) as patterns(provider, paths)
+where source.provider = patterns.provider;
 
 -- Demo data: synthetic fixture listings from src/lib/fixtures/listings.ts, marked with is_demo.
 -- Their merge keys use the source ID "demo" because no crawled source owns them.

@@ -15,6 +15,7 @@ import type { Json } from '../supabase/database.types';
 import { embedMissingListings } from '../embeddings/listings';
 import { listUnembeddedListings, recordObservedListing } from '../supabase/listings';
 import { listingFromExtraction } from './extraction';
+import { storeListingImages } from './images';
 import { finishCrawlRunIfDone } from './refresh';
 
 export type FirecrawlEventResult = { status: 'unauthorized' | 'invalid' | 'duplicate' | 'processed' };
@@ -153,6 +154,9 @@ async function processPage(
   }
 
   await embedListingSafely(result.listingId);
+  if (extraction.kind === 'listing') {
+    await storeListingImages(result.listingId, extraction.imageUrls);
+  }
 
   return 'processed';
 }

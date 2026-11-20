@@ -49,6 +49,26 @@ describe('page extraction schema', () => {
     expect(result.kind === 'listing' && result.listing.amenities).toEqual({ laundry: true, parking: null });
   });
 
+  it('keeps up to three valid listing image URLs separate from listing details', () => {
+    const result = listingFromExtraction(
+      { isListingPage: true, listing: { ...extractedListing, imageUrls: [
+        'https://images.example.com/a.jpg',
+        'javascript:alert(1)',
+        'https://images.example.com/b.webp',
+        'https://images.example.com/c.png',
+        'https://images.example.com/d.png',
+      ] } },
+      pageUrl,
+      fetchedAt,
+    );
+
+    expect(result.kind === 'listing' && result.imageUrls).toEqual([
+      'https://images.example.com/a.jpg',
+      'https://images.example.com/b.webp',
+      'https://images.example.com/c.png',
+    ]);
+  });
+
   it('marks conflicting amenity observations as unknown', () => {
     const result = listingFromExtraction(
       {
