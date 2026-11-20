@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GET } from "./route";
 import { authClient } from "@/lib/supabase/auth";
 
@@ -11,6 +11,8 @@ beforeEach(() => {
   signInWithOAuth.mockReset().mockResolvedValue({ data: { url: "https://accounts.google.com/start" }, error: null });
   vi.mocked(authClient).mockResolvedValue({ auth: { signInWithOAuth } } as never);
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 it("starts Google OAuth with the application callback", async () => {
   const response = await GET(new Request("http://localhost:8000/api/auth/google"));
@@ -26,4 +28,13 @@ it("returns to sign-in when OAuth cannot start", async () => {
   const response = await GET(new Request("http://localhost:8000/api/auth/google"));
 
   expect(response.headers.get("location")).toBe("http://localhost:8000/?authError=google");
+});
+
+it("uses tryhomework on Vercel production despite an old base URL", async () => {
+  vi.stubEnv("VERCEL_ENV", "production");
+  vi.stubEnv("APP_BASE_URL", "http://localhost:3000");
+
+  await GET(new Request("http://localhost:3000/api/auth/google"));
+
+  expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: { redirectTo: "https://tryhomework.vercel.app/api/auth/callback" } });
 });

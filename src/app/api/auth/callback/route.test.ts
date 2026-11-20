@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GET } from "./route";
 import { authClient } from "@/lib/supabase/auth";
 
@@ -11,6 +11,8 @@ beforeEach(() => {
   exchangeCodeForSession.mockReset().mockResolvedValue({ error: null });
   vi.mocked(authClient).mockResolvedValue({ auth: { exchangeCodeForSession } } as never);
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 it("exchanges the code and sends the student to groups", async () => {
   const response = await GET(new Request("http://localhost:8000/api/auth/callback?code=abc"));
@@ -32,4 +34,12 @@ it("returns to sign-in when exchange fails", async () => {
   const response = await GET(new Request("http://localhost:8000/api/auth/callback?code=abc"));
 
   expect(response.headers.get("location")).toBe("http://localhost:8000/?authError=google");
+});
+
+it("returns to tryhomework after a production callback", async () => {
+  vi.stubEnv("VERCEL_ENV", "production");
+
+  const response = await GET(new Request("http://localhost:3000/api/auth/callback?code=abc"));
+
+  expect(response.headers.get("location")).toBe("https://tryhomework.vercel.app/groups");
 });
