@@ -1,14 +1,14 @@
-import '@mantine/core/styles.css';
-import '../styles/globals.scss';
+import "@mantine/core/styles.css";
+import "../styles/globals.scss";
 
-import { ColorSchemeScript, mantineHtmlProps } from '@mantine/core';
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
-import { Providers } from './providers';
+import { ColorSchemeScript, mantineHtmlProps } from "@mantine/core";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: 'Hack the Lease',
-  description: 'Compare Ann Arbor housing against your priorities.',
+  title: "Hack the Lease",
+  description: "Compare Ann Arbor housing against your priorities.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

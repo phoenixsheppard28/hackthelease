@@ -18,6 +18,7 @@ export async function startCrawl(source: SourceRow, crawlRunSourceId: string): P
     body: JSON.stringify({
       url: source.inventory_url,
       limit: crawlPageLimit,
+      crawlEntireDomain: true,
       ...(source.listing_patterns.length > 0 && { includePaths: source.listing_patterns }),
       scrapeOptions: {
         formats: [{ type: 'json', schema: pageExtractionJsonSchema, prompt: pageExtractionPrompt }],

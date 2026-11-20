@@ -20,6 +20,7 @@ Use the same framework, UI library, styling system, data layer, and package mana
 | Database | Supabase Postgres with pgvector | Store listings, scrape history, and embeddings. |
 | Ingestion | Firecrawl | Run asynchronous crawls and extract structured data. |
 | Embeddings | OpenAI `text-embedding-3-small` | Compare listing features with lifestyle preferences. |
+| Travel | Google Routes API | Estimate route distance and travel time for confirmed destinations. |
 | Validation | Zod | Validate request bodies and scraped records. |
 | Package manager | pnpm | Install dependencies and run scripts. |
 
@@ -27,7 +28,7 @@ The OpenAI choice requires an API key. Store all API keys in Vercel environment 
 
 The browser calls only this app's `/api/*` routes. Route handlers validate requests, check authorization, and call Supabase or external services. No browser code imports a Supabase client or calls its API. Keep provider clients in server-only modules under `src/lib`.
 
-The Supabase project URL and publishable key are not secret credentials. This project keeps them server-side to preserve the chosen backend boundary. The Supabase secret key, Firecrawl key, webhook secret, and OpenAI key must remain server-side.
+The Supabase project URL and publishable key are public credentials. This project still uses them through server routes. Keep all secret keys on the server.
 
 Mantine supports [Next.js App Router](https://mantine.dev/guides/next/) and [Sass modules](https://mantine.dev/styles/sass/). Kibo UI requires Tailwind, so this project does not use Kibo UI.
 
@@ -120,6 +121,14 @@ The first ranker supports affordability, preferred amenities, and lifestyle fit.
 Give missing preference evidence a neutral score of 0.5 and flag it as uncertain. Do not present an unknown amenity as present. Report each score and its evidence so the student can judge the uncertainty.
 
 Section 5 will add travel estimates. Until then, mark commute scoring unavailable and renormalize the weights of supported priorities. Do not present distance as travel time.
+
+## Travel estimates for section 5
+
+Call [Compute Routes](https://developers.google.com/maps/documentation/routes/compute-route-over) from a server route through the shared `estimateTravel` function. Send a listing address and a confirmed destination. Use the student's available travel mode and the relevant departure time. Request only distance and duration fields.
+
+Show distance, estimated duration, mode, and Google Maps attribution with each result. Reuse the estimate in commute scoring and the day simulation. Show modeled delays as separate assumptions.
+
+Keep the API key in `GOOGLE_MAPS_API_KEY`. [Enable Routes API and billing](https://developers.google.com/maps/documentation/routes/get-api-key) in Google Cloud. Set a daily quota before live use. Follow [Google's storage and attribution rules](https://developers.google.com/maps/documentation/routes/policies). Use the documented travel-time matrix when live routing is unavailable.
 
 ## References
 

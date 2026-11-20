@@ -93,9 +93,13 @@ If a missing listing detail could change the decision, let the student draft an 
 ### 5. Routing and hardest-day simulation
 
 - Build one travel-time function for matching and simulation.
+- Use Google Routes API on the server for distance and estimated travel time from each listing to confirmed destinations.
+- Request walking, cycling, transit, or driving routes for the student's available modes and departure time.
+- Show route distance, estimated duration, travel mode, and Google Maps attribution beside each result.
 - Hold one schedule day fixed across all listings.
 - Calculate departure, arrival, and buffer times. Rerun the day with a modeled delay.
-- Use a documented travel-time matrix first if live routing slows the build.
+- Keep modeled delays separate from Google route estimates.
+- Use a documented travel-time matrix if API access or latency blocks the demo.
 
 **Done when:** A student can compare two apartments and see which trips become tight or late after a delay.
 

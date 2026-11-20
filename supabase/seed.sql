@@ -1,7 +1,22 @@
 insert into public.sources (provider, inventory_url, allowed_domains)
 values
   ('Oxford Companies', 'https://residential.oxfordcompanies.com/searchlisting', array['residential.oxfordcompanies.com']),
-  ('Cabrio Properties', 'https://showmojo.com/8f47a0401c/l', array['showmojo.com'])
+  ('Cabrio Properties', 'https://showmojo.com/8f47a0401c/l', array['showmojo.com']),
+  ('University of Michigan Off-Campus Housing', 'https://offcampushousing.umich.edu/listing', array['offcampushousing.umich.edu']),
+  ('Pappas Rentals', 'https://www.pappasrentals.com/', array['www.pappasrentals.com']),
+  ('CMB Ann Arbor Apartments', 'https://annarborapartments.net/all-properties/', array['annarborapartments.net']),
+  ('Varsity Management', 'https://www.varsitymanagement.com/portfolio', array['www.varsitymanagement.com']),
+  ('McKinley State Street Village', 'https://www.mckinley.com/apartments/michigan/ann-arbor/state-street-village/', array['www.mckinley.com']),
+  ('Landmark Ann Arbor', 'https://livethelandmark.com/floorplans/', array['livethelandmark.com']),
+  ('Foundry Lofts', 'https://www.foundryloftsannarbor.com/floorplans/', array['www.foundryloftsannarbor.com']),
+  ('The Yard on South Main', 'https://livetheyard.com/floor-plans/', array['livetheyard.com']),
+  ('Six11', 'https://livesix11.com/floor-plans/', array['livesix11.com']),
+  ('Chapter Ann Arbor', 'https://chapterannarbor.com/floor-plans/', array['chapterannarbor.com']),
+  ('The Standard at Ann Arbor', 'https://www.thestandardannarbor.com/floorplans/', array['www.thestandardannarbor.com']),
+  ('Vic Village North', 'https://www.thevicvillagenorth.com/', array['www.thevicvillagenorth.com']),
+  ('Woodbury Gardens', 'https://www.woodburygardens.com/Floor-plans.aspx', array['www.woodburygardens.com']),
+  ('Ann Arbor City Club', 'https://www.cityclubannarbor.com/floorplans', array['www.cityclubannarbor.com']),
+  ('The Haven of Ann Arbor', 'https://www.havenofannarbor.com/floorplans/', array['www.havenofannarbor.com'])
 on conflict (inventory_url) do nothing;
 
 -- Demo data: synthetic fixture listings from src/lib/fixtures/listings.ts, marked with is_demo.
