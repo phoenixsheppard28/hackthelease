@@ -254,8 +254,8 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
       setError("Choose up to five frequent places. Exclude the others before continuing.");
       return;
     }
-    if (question.kind === "calendar" && calendarPlaces.some(place => !place.name.trim() || !/\d/.test(place.address))) {
-      setError("Add a street address for each place, or exclude places you do not want to rank.");
+    if (question.kind === "calendar" && calendarPlaces.some(place => !place.name.trim() || !place.address.trim())) {
+      setError("Add a venue or address for each place, or exclude places you do not want to rank.");
       return;
     }
     if (question.kind === "calendar" && new Set(calendarPlaces.map(place => place.name.trim().toLowerCase())).size !== calendarPlaces.length) {
@@ -793,7 +793,7 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                         <p className={styles.status}>{index + 1}. {place.count} scheduled {place.count === 1 ? 'visit' : 'visits'}</p>
                         <TextInput classNames={fieldClasses} label="Place name" value={place.name} maxLength={100}
                           onChange={change => { const name = change.currentTarget.value; setCalendarPlaces(current => current.map((item, position) => position === index ? { ...item, name } : item)); }} />
-                        <TextInput classNames={fieldClasses} label="Street address" value={place.address} maxLength={200}
+                        <TextInput classNames={fieldClasses} label="Venue or address" value={place.address} maxLength={200}
                           onChange={change => { const address = change.currentTarget.value; setCalendarPlaces(current => current.map((item, position) => position === index ? { ...item, address } : item)); }} />
                         <UnstyledButton className={styles.retry} onClick={() => setCalendarPlaces(current => current.filter((_, position) => position !== index))}>Exclude place</UnstyledButton>
                       </div>

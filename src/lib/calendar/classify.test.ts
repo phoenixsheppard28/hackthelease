@@ -3,6 +3,20 @@ import { classifyPlaces } from "./classify";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
+it.each(['', 'test-key'])('keeps named venues with generic event titles regardless of AI configuration (%s)', async key => {
+  vi.stubEnv('OPENAI_API_KEY', key);
+  const model = vi.fn().mockRejectedValue(new Error('AI unavailable'));
+  vi.stubGlobal('fetch', model);
+  expect(await classifyPlaces([
+    { title: 'Climbing Practice', location: 'Planet Rock Ann Arbor', count: 9 },
+    { title: 'Coffee chat', location: 'RoosRoast Liberty', count: 2 },
+  ])).toEqual([
+    { name: 'Planet Rock Ann Arbor', address: 'Planet Rock Ann Arbor', count: 9 },
+    { name: 'RoosRoast Liberty', address: 'RoosRoast Liberty', count: 2 },
+  ]);
+  expect(model).not.toHaveBeenCalled();
+});
+
 it('combines title-only room variants with explicit locations at the same building', async () => {
   vi.stubEnv('OPENAI_API_KEY', '');
   expect(await classifyPlaces([
@@ -42,17 +56,17 @@ it("uses AI for place labels but preserves server-counted visits", async () => {
   const fetchModel = vi.fn().mockResolvedValue(Response.json({ output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ places: [{ index: 0, name: "Chem Building", address: "930 N University Ave, Ann Arbor, MI", physical: true }] }) }] }] }));
   vi.stubGlobal("fetch", fetchModel);
 
-  const places = await classifyPlaces([{ title: "Chemistry", location: "Chem Bldg", count: 24 }]);
+  const places = await classifyPlaces([{ title: "Chem Bldg", location: "", count: 24 }]);
 
   expect(places).toEqual([{ name: "Chem Building", address: "930 N University Ave, Ann Arbor, MI", count: 24 }]);
   expect(fetchModel).toHaveBeenCalledWith("https://api.openai.com/v1/responses", expect.objectContaining({ method: "POST" }));
 });
 
-it("omits unresolved places instead of asking for an address when AI is unavailable", async () => {
+it("preserves an explicit location even when AI cannot resolve it", async () => {
   vi.stubEnv("OPENAI_API_KEY", "");
 
   expect(await classifyPlaces([{ title: "Class", location: "Unknown room", count: 20 }]))
-    .toEqual([]);
+    .toEqual([{ name: "Unknown room", address: "Unknown room", count: 20 }]);
 });
 
 it('resolves a known building abbreviation without relying on AI', async () => {
@@ -66,12 +80,12 @@ it("does not duplicate a place when AI repeats its index", async () => {
   const suggestion = { index: 0, name: "Chem Building", address: "930 N University Ave, Ann Arbor, MI", physical: true };
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ output: [{ content: [{ type: "output_text", text: JSON.stringify({ places: [suggestion, suggestion] }) }] }] })));
 
-  expect(await classifyPlaces([{ title: "Chemistry", location: "Chem Bldg", count: 24 }])).toHaveLength(1);
+  expect(await classifyPlaces([{ title: "Chem Bldg", location: "", count: 24 }])).toHaveLength(1);
 });
 
-it("omits unresolved places beyond the AI batch", async () => {
+it("preserves explicit locations beyond the AI batch", async () => {
   vi.stubEnv("OPENAI_API_KEY", "");
   const places = Array.from({ length: 21 }, (_, index) => ({ title: `Class ${index}`, location: `Place ${index}`, count: 20 }));
 
-  expect(await classifyPlaces(places)).toHaveLength(0);
+  expect(await classifyPlaces(places)).toHaveLength(21);
 });

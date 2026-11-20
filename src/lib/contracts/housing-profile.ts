@@ -37,7 +37,7 @@ export const housingProfileSchema = z.object({
   })).default([]),
   calendarDestinations: z.array(z.object({
     name: z.string().trim().min(1).max(100),
-    address: z.string().trim().min(5).max(200).regex(/\d/, "Enter a street address."),
+    address: z.string().trim().min(1, "Enter a venue or address.").max(200),
     count: z.number().int().min(1).max(2500),
   })).max(5).refine(places => new Set(places.map(place => place.name.toLowerCase())).size === places.length,
     "Use a different name for each Calendar place.").default([]),

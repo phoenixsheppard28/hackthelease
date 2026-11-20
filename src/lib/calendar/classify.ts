@@ -14,8 +14,10 @@ export async function classifyPlaces(places: FrequentPlace[]): Promise<CalendarD
     // A specified location wins over a title that mentions a different building.
     const building = calendarBuilding(place.location || place.title);
     if (building) { resolved.push({ name: building.name, address: building.address, count: place.count }); return false; }
-    if (/^\d+\s+.+\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way)\b/i.test(place.location)) {
-      resolved.push({ name: place.location, address: place.location, count: place.count }); return false;
+    // Calendar already supplied the destination. A venue name must not depend on AI or contain a street number.
+    const location = place.location.trim();
+    if (location) {
+      resolved.push({ name: location.slice(0, 100), address: location.slice(0, 200), count: place.count }); return false;
     }
     return true;
   });

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GET } from "./route";
 import { currentStudent } from "@/lib/supabase/auth";
+import { housingProfileSchema } from '@/lib/contracts/housing-profile';
+import { previewProfile } from '@/lib/matching/preview-profile';
 
 const cookieValues = new Map<string, string>();
 vi.mock("server-only", () => ({}));
@@ -38,6 +40,22 @@ it('imports a building from event titles without asking for an address and skips
   const data = await (await GET(new Request('http://localhost/api/calendar?review=1'))).json();
   expect(data.places).toEqual([{ name: 'Leinweber Building', address: '2200 Hayward St, Ann Arbor, MI 48109', count: 2 }]);
   expect(data.scan.missingLocation).toBe(2);
+});
+
+it('imports and saves climbing practice with a supplied venue while omitting a location-free task', async () => {
+  cookieValues.set('housing_calendar_token', 'google-token');
+  cookieValues.set('housing_calendar_owner', 'student-1');
+  const start = { dateTime: '2026-11-18T10:00:00Z' };
+  mockCalendarFetch(vi.fn().mockResolvedValue(Response.json({ items: [
+    { summary: 'Climbing Practice', location: 'Planet Rock Ann Arbor', start },
+    { summary: 'study', start },
+    { summary: 'Coffee chat', location: 'Zoom', start },
+  ] })));
+  const data = await (await GET(new Request('http://localhost/api/calendar?review=1'))).json();
+  expect(data.places).toEqual([{ name: 'Planet Rock Ann Arbor', address: 'Planet Rock Ann Arbor', count: 1 }]);
+  expect(data.scan).toMatchObject({ missingLocation: 1, online: 1 });
+  expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: data.places }).success).toBe(true);
+  expect(housingProfileSchema.safeParse({ ...previewProfile, calendarDestinations: [{ ...data.places[0], address: ' ' }] }).success).toBe(false);
 });
 
 it("does not fetch Calendar events for another student", async () => {
