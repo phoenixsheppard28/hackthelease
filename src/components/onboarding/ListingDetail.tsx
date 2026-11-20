@@ -12,6 +12,7 @@ import { walkingStatusText } from '@/lib/travel/types';
 import { useListingEvidence } from './useListingEvidence';
 import { Icon } from "./Icon";
 import { TravelTimes } from "./TravelTimes";
+import { ListingAmenities } from './ListingAmenities';
 import styles from "./ListingDetail.module.scss";
 
 export function ListingDetail({ listingId, profileId, context }: { listingId: string; profileId: string; context: BrowseContext }) {
@@ -116,6 +117,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
             </div>
             {home.images.length > 1 && <div className={styles.photoPicker} aria-label="Property photos">{home.images.map((image, index) => <button key={image} aria-label={`Show photo ${index + 1}`} aria-pressed={index === photoIndex} onClick={() => { setPhotoIndex(index); setFailedPhoto(false); }}><Image src={image} alt="" width={56} height={56} /></button>)}</div>}
           </div>
+          <ListingAmenities key={home.id} features={home.features} />
           <section className={styles.places}><h2>Your places, from here</h2>
             {groupId && <p className={styles.footnote}>Walking times to the three places in your profile.</p>}
             <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{profile.hubs.map(name => {
@@ -153,7 +155,6 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           <p className={styles.footnote}>{sourceName} · Last checked {date}</p>
           {!groupId && <details className={styles.breakdown}><summary>Why it ranks here</summary><dl>{home.components.map(component => <div key={component.label}><dt>{component.label}<small>Importance {component.weight}/100</small></dt><dd>{component.score === null ? "Not scored" : `${component.score}/100`}</dd></div>)}</dl><p className={styles.footnote}>Available category scores are weighted by your sliders. Unknown budget or bedroom evidence receives a neutral score. Incomplete location and unavailable lifestyle scores are excluded. With Location above zero, homes with complete walking estimates rank ahead of those with incomplete estimates. Scores measure fit, not probability.</p></details>}
           {home.description && <section className={styles.description}><h2>About this home</h2><p>{home.description}</p></section>}
-          {home.features.length > 0 && <details className={styles.breakdown}><summary>Features from the listing</summary><ul>{home.features.map(feature => <li key={feature}>{feature}</li>)}</ul></details>}
         </section>
       </div>
     </main>
