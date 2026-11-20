@@ -5,6 +5,7 @@ values
 on conflict (inventory_url) do nothing;
 
 -- Demo data: synthetic fixture listings from src/lib/fixtures/listings.ts, marked with is_demo.
+-- Their merge keys use the source ID "demo" because no crawled source owns them.
 -- searchable_text must match listingToRow in src/lib/supabase/listing-rows.ts.
 insert into public.listings (
   merge_key, address, normalized_address, unit, normalized_unit,
@@ -22,7 +23,7 @@ select
 from (
   values
     (
-      'unit:625 s state st ann arbor mi#2b',
+      'unit:demo:625 s state st ann arbor mi#2b',
       '625 South State Street, Ann Arbor, MI', '625 s state st ann arbor mi', '2B', '2b',
       980, 980, 'per_person', 0, 2, '2027-08-20', null::boolean,
       '{"laundry": true, "parking": false}',
@@ -32,7 +33,7 @@ from (
       E'Address: 625 South State Street, Ann Arbor, MI\nAmenities: laundry\nFeatures: Shared kitchen, Near Central Campus\nDescription: Demo listing for ranking and layout work.'
     ),
     (
-      'unit:1100 broadway st ann arbor mi#4a',
+      'unit:demo:1100 broadway st ann arbor mi#4a',
       '1100 Broadway Street, Ann Arbor, MI', '1100 broadway st ann arbor mi', '4A', '4a',
       2200, 2200, 'per_unit', 0, 2, '2027-08-20', true,
       '{"laundry": true, "parking": true}',

@@ -46,14 +46,14 @@ export function normalizeUnit(unit: string | null): string | null {
   return unitWords.join('') || null;
 }
 
-export function listingMergeKey(listing: ListingInput): string {
+export function listingMergeKey(listing: ListingInput, sourceId: string): string {
   const unit = normalizeUnit(listing.unit);
 
   if (unit === null) {
     return `page:${listing.sources[0].url}`;
   }
 
-  return `unit:${normalizeAddress(listing.address)}#${unit}`;
+  return `unit:${sourceId}:${normalizeAddress(listing.address)}#${unit}`;
 }
 
 function listingSearchText(listing: ListingInput): string {
@@ -77,11 +77,11 @@ function latestFetchTime(sources: ListingInput['sources']): string {
   ).fetchedAt;
 }
 
-export function listingToRow(listing: ListingInput): ListingWriteRow {
+export function listingToRow(listing: ListingInput, sourceId: string): ListingWriteRow {
   const searchableText = listingSearchText(listing);
 
   return {
-    merge_key: listingMergeKey(listing),
+    merge_key: listingMergeKey(listing, sourceId),
     address: listing.address,
     normalized_address: normalizeAddress(listing.address),
     unit: listing.unit,

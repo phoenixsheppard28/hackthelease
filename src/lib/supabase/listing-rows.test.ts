@@ -12,6 +12,7 @@ import {
 
 const { id: _id, isActive: _isActive, ...demoInput } = demoListings[0];
 const listingInput: ListingInput = demoInput;
+const sourceId = 'source-oxford';
 
 describe('address and unit normalization', () => {
   it('reduces spelling variants of one address to the same value', () => {
@@ -41,7 +42,13 @@ describe('listingMergeKey', () => {
       sources: [{ url: 'https://example.com/other', fetchedAt: '2026-11-20T00:00:00Z' }],
     };
 
-    expect(listingMergeKey(variant)).toBe(listingMergeKey(listingInput));
+    expect(listingMergeKey(variant, sourceId)).toBe(listingMergeKey(listingInput, sourceId));
+  });
+
+  it('keeps the same address and unit separate across sources', () => {
+    expect(listingMergeKey(listingInput, 'source-cabrio')).not.toBe(
+      listingMergeKey(listingInput, sourceId),
+    );
   });
 
   it('keeps listings with an unknown unit separate per source page', () => {
@@ -51,8 +58,8 @@ describe('listingMergeKey', () => {
       sources: [{ url: 'https://example.com/other', fetchedAt: '2026-11-20T00:00:00Z' }],
     };
 
-    expect(listingMergeKey(first)).not.toBe(listingMergeKey(second));
-    expect(listingMergeKey(first)).toBe(listingMergeKey({ ...first }));
+    expect(listingMergeKey(first, sourceId)).not.toBe(listingMergeKey(second, sourceId));
+    expect(listingMergeKey(first, sourceId)).toBe(listingMergeKey({ ...first }, sourceId));
   });
 });
 
@@ -60,15 +67,17 @@ describe('listingToRow', () => {
   it('keeps the text hash when only rent changes', () => {
     const rentChange = { ...listingInput, rentMin: 1100, rentMax: 1100 };
 
-    expect(listingToRow(rentChange).text_hash).toBe(listingToRow(listingInput).text_hash);
-    expect(listingToRow(listingInput).searchable_text).not.toContain('980');
+    expect(listingToRow(rentChange, sourceId).text_hash).toBe(
+      listingToRow(listingInput, sourceId).text_hash,
+    );
+    expect(listingToRow(listingInput, sourceId).searchable_text).not.toContain('980');
   });
 
   it('changes the text hash when descriptive text changes', () => {
     const descriptionChange = { ...listingInput, description: 'Quiet building near the Diag.' };
 
-    expect(listingToRow(descriptionChange).text_hash).not.toBe(
-      listingToRow(listingInput).text_hash,
+    expect(listingToRow(descriptionChange, sourceId).text_hash).not.toBe(
+      listingToRow(listingInput, sourceId).text_hash,
     );
   });
 
@@ -81,14 +90,14 @@ describe('listingToRow', () => {
       ],
     };
 
-    expect(listingToRow(twoSources).refreshed_at).toBe('2026-11-19T21:00:00-02:00');
+    expect(listingToRow(twoSources, sourceId).refreshed_at).toBe('2026-11-19T21:00:00-02:00');
   });
 });
 
 describe('listingFromRow', () => {
   it('maps a stored row back to the Listing contract', () => {
     const row = {
-      ...listingToRow(listingInput),
+      ...listingToRow(listingInput, sourceId),
       id: demoListings[0].id,
       is_active: true,
       is_demo: true,
@@ -106,7 +115,7 @@ describe('demo seed', () => {
     const seed = readFileSync('supabase/seed.sql', 'utf8');
 
     for (const { id: _demoId, isActive: _demoActive, ...demo } of demoListings) {
-      const row = listingToRow(demo);
+      const row = listingToRow(demo, 'demo');
 
       expect(seed).toContain(`'${row.merge_key}'`);
       expect(seed).toContain(`'${row.normalized_address}'`);

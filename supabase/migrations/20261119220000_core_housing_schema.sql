@@ -1,4 +1,5 @@
 create extension if not exists vector with schema extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create type public.crawl_state as enum ('queued', 'running', 'succeeded', 'partial', 'failed');
 create type public.rent_basis as enum ('per_person', 'per_unit', 'unknown');
@@ -153,14 +154,11 @@ declare
   incoming public.listings;
   previous public.listings;
   saved public.listings;
-  had_previous boolean;
 begin
   incoming := jsonb_populate_record(null::public.listings, p_listing);
 
-  select * into previous from public.listings where merge_key = incoming.merge_key for update;
-  had_previous := found;
-
-  insert into public.listings as existing (
+  -- A concurrent insert of the same key waits here and then does nothing, so only one caller sees a new row.
+  insert into public.listings (
     merge_key, address, normalized_address, unit, normalized_unit,
     rent_min, rent_max, rent_basis, recurring_fees_monthly, beds, available_from, accessible,
     amenities, features, description, contact, sources, searchable_text, text_hash, refreshed_at
@@ -172,38 +170,50 @@ begin
     incoming.amenities, incoming.features, incoming.description, incoming.contact, incoming.sources,
     incoming.searchable_text, incoming.text_hash, incoming.refreshed_at
   )
-  on conflict (merge_key) do update set
-    address = excluded.address,
-    normalized_address = excluded.normalized_address,
-    unit = excluded.unit,
-    normalized_unit = excluded.normalized_unit,
-    rent_min = excluded.rent_min,
-    rent_max = excluded.rent_max,
-    rent_basis = excluded.rent_basis,
-    recurring_fees_monthly = excluded.recurring_fees_monthly,
-    beds = excluded.beds,
-    available_from = excluded.available_from,
-    accessible = excluded.accessible,
-    amenities = excluded.amenities,
-    features = excluded.features,
-    description = excluded.description,
-    contact = excluded.contact,
-    -- Keep every source page that ever reported the listing, with its latest fetch.
-    sources = (
-      select jsonb_agg(latest.source order by (latest.source ->> 'fetchedAt')::timestamptz desc)
-      from (
-        select distinct on (source ->> 'url') source
-        from jsonb_array_elements(excluded.sources || existing.sources) as source
-        order by source ->> 'url', (source ->> 'fetchedAt')::timestamptz desc
-      ) as latest
-    ),
-    searchable_text = excluded.searchable_text,
-    text_hash = excluded.text_hash,
-    embedding = case when existing.text_hash = excluded.text_hash then existing.embedding end,
-    is_active = true,
-    refreshed_at = greatest(existing.refreshed_at, excluded.refreshed_at),
-    updated_at = now()
+  on conflict (merge_key) do nothing
   returning * into saved;
+
+  if not found then
+    -- The row lock makes the old rent read and the update one atomic step.
+    select * into previous from public.listings where merge_key = incoming.merge_key for update;
+    if not found then
+      raise exception 'Listing % disappeared during upsert.', incoming.merge_key;
+    end if;
+
+    update public.listings as existing set
+      address = incoming.address,
+      normalized_address = incoming.normalized_address,
+      unit = incoming.unit,
+      normalized_unit = incoming.normalized_unit,
+      rent_min = incoming.rent_min,
+      rent_max = incoming.rent_max,
+      rent_basis = incoming.rent_basis,
+      recurring_fees_monthly = incoming.recurring_fees_monthly,
+      beds = incoming.beds,
+      available_from = incoming.available_from,
+      accessible = incoming.accessible,
+      amenities = incoming.amenities,
+      features = incoming.features,
+      description = incoming.description,
+      contact = incoming.contact,
+      -- Keep every source page that ever reported the listing, with its latest fetch.
+      sources = (
+        select jsonb_agg(latest.source order by (latest.source ->> 'fetchedAt')::timestamptz desc)
+        from (
+          select distinct on (source ->> 'url') source
+          from jsonb_array_elements(incoming.sources || existing.sources) as source
+          order by source ->> 'url', (source ->> 'fetchedAt')::timestamptz desc
+        ) as latest
+      ),
+      searchable_text = incoming.searchable_text,
+      text_hash = incoming.text_hash,
+      embedding = case when existing.text_hash = incoming.text_hash then existing.embedding end,
+      is_active = true,
+      refreshed_at = greatest(existing.refreshed_at, incoming.refreshed_at),
+      updated_at = now()
+    where existing.id = previous.id
+    returning * into saved;
+  end if;
 
   if p_observation_id is not null then
     update public.listing_observations set listing_id = saved.id where id = p_observation_id;
@@ -211,8 +221,8 @@ begin
 
   return query select
     saved.id,
-    not had_previous,
-    had_previous and (previous.rent_min, previous.rent_max, previous.rent_basis)
+    previous.id is null,
+    previous.id is not null and (previous.rent_min, previous.rent_max, previous.rent_basis)
       is distinct from (saved.rent_min, saved.rent_max, saved.rent_basis);
 end;
 $$;

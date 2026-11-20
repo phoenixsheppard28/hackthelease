@@ -5,6 +5,7 @@ import { supabaseAdmin } from './server';
 
 export type StoredListing = {
   listing: Listing;
+  isDemo: boolean;
   searchableText: string;
   textHash: string;
   embedding: number[] | null;
@@ -24,6 +25,7 @@ export async function listActiveListings(): Promise<StoredListing[]> {
 
   return data.map((row) => ({
     listing: listingFromRow(row),
+    isDemo: row.is_demo,
     searchableText: row.searchable_text,
     textHash: row.text_hash,
     embedding: row.embedding === null ? null : (JSON.parse(row.embedding) as number[]),
@@ -32,10 +34,14 @@ export async function listActiveListings(): Promise<StoredListing[]> {
 
 export async function upsertListing(
   listing: ListingInput,
+  sourceId: string,
   observationId?: string,
 ): Promise<ListingUpsertResult> {
   const { data, error } = await supabaseAdmin()
-    .rpc('upsert_listing', { p_listing: listingToRow(listing), p_observation_id: observationId })
+    .rpc('upsert_listing', {
+      p_listing: listingToRow(listing, sourceId),
+      p_observation_id: observationId,
+    })
     .single();
   if (error) {
     throw error;
