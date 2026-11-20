@@ -277,7 +277,11 @@ export type Database = {
     Functions: {
       create_crawl_run: {
         Args: { p_source_ids: string[] };
-        Returns: string;
+        Returns: {
+          crawl_run_id: string;
+          crawl_run_source_id: string;
+          source_id: string;
+        }[];
       };
       increment_crawl_run_source_counts: {
         Args: {

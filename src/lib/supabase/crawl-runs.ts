@@ -38,7 +38,12 @@ export async function listEnabledSources(): Promise<SourceRow[]> {
   return data;
 }
 
-export async function createCrawlRun(sourceIds: string[]): Promise<string> {
+export type CreatedCrawlRun = {
+  runId: string;
+  sources: { crawlRunSourceId: string; sourceId: string }[];
+};
+
+export async function createCrawlRun(sourceIds: string[]): Promise<CreatedCrawlRun> {
   const { data, error } = await supabaseAdmin().rpc('create_crawl_run', { p_source_ids: sourceIds });
   if (error?.code === uniqueViolation) {
     throw new SourceAlreadyRunningError();
@@ -47,7 +52,10 @@ export async function createCrawlRun(sourceIds: string[]): Promise<string> {
     throw error;
   }
 
-  return data;
+  return {
+    runId: data[0].crawl_run_id,
+    sources: data.map((row) => ({ crawlRunSourceId: row.crawl_run_source_id, sourceId: row.source_id })),
+  };
 }
 
 export async function updateCrawlRun(runId: string, update: CrawlRunUpdate): Promise<void> {

@@ -96,7 +96,7 @@ alter table public.listings enable row level security;
 alter table public.listing_observations enable row level security;
 
 create function public.create_crawl_run(p_source_ids uuid[])
-returns uuid
+returns table (crawl_run_id uuid, crawl_run_source_id uuid, source_id uuid)
 language plpgsql
 set search_path = ''
 as $$
@@ -109,10 +109,13 @@ begin
 
   insert into public.crawl_runs default values returning id into new_run_id;
 
-  insert into public.crawl_run_sources (crawl_run_id, source_id)
-  select distinct new_run_id, source_id from unnest(p_source_ids) as source_id;
-
-  return new_run_id;
+  return query
+  with created as (
+    insert into public.crawl_run_sources (crawl_run_id, source_id)
+    select distinct new_run_id, requested.id from unnest(p_source_ids) as requested (id)
+    returning public.crawl_run_sources.crawl_run_id, public.crawl_run_sources.id, public.crawl_run_sources.source_id
+  )
+  select created.crawl_run_id, created.id, created.source_id from created;
 end;
 $$;
 
