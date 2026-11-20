@@ -205,7 +205,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
       )
         return;
       if (event.data === "calendar-connected")
-        queryClient.invalidateQueries({ queryKey: ["calendar"] });
+        window.location.assign("/");
       if (event.data === "calendar-error")
         setError("Calendar could not connect. Please retry or skip for now.");
       if (event.data === "calendar-account-error")
@@ -213,7 +213,7 @@ export function Onboarding({ initialProfile, initialGroupOpen = false }: { initi
     }
     window.addEventListener("message", receiveCalendar);
     return () => window.removeEventListener("message", receiveCalendar);
-  }, [queryClient]);
+  }, []);
 
   function update(key: keyof HousingProfile, value: unknown) {
     setProfile((current) => ({ ...current, [key]: value }));

@@ -18,11 +18,13 @@ beforeEach(() => {
 
 it("stores the Google token for the same student", async () => {
   const response = await GET(new Request("http://localhost:8000/api/calendar/callback?code=abc"));
+  const html = await response.text();
 
   expect(exchangeCodeForSession).toHaveBeenCalledWith("abc");
   expect(response.cookies.get("housing_calendar_token")?.value).toBe("google-token");
   expect(response.cookies.get("housing_calendar_owner")?.value).toBe("student-1");
-  expect(await response.text()).toContain("calendar-connected");
+  expect(html).toContain("calendar-connected");
+  expect(html).toContain('window.location.replace("/")');
 });
 
 it("rejects a different Google account and clears its session", async () => {
