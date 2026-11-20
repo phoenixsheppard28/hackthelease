@@ -1,20 +1,25 @@
 "use client";
 
-import { MantineProvider } from "@mantine/core";
+import { useState } from "react";
+import { MantineProvider, createTheme } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 
-let browserQueryClient: QueryClient | undefined;
+const theme = createTheme({
+  fontFamily: 'Apercu Pro, sans-serif',
+  headings: { fontFamily: 'Apercu Pro, sans-serif' },
+  primaryColor: "dark",
+  defaultRadius: 6,
+});
 
-export function Providers({ children }: { children: ReactNode }) {
-  const queryClient =
-    typeof window === "undefined"
-      ? new QueryClient()
-      : (browserQueryClient ??= new QueryClient());
-
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [client] = useState(() => new QueryClient({
+    defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  }));
   return (
-    <QueryClientProvider client={queryClient}>
-      <MantineProvider defaultColorScheme="light">{children}</MantineProvider>
+    <QueryClientProvider client={client}>
+      <MantineProvider theme={theme} forceColorScheme="light">
+        {children}
+      </MantineProvider>
     </QueryClientProvider>
   );
 }

@@ -1,25 +1,10 @@
-import "@mantine/core/styles.css";
-import "../styles/globals.scss";
-
-import { ColorSchemeScript, mantineHtmlProps } from "@mantine/core";
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import "@mantine/core/styles.css";
+import "@/styles/globals.scss";
 import { Providers } from "./providers";
 
-export const metadata: Metadata = {
-  title: "Hack the Lease",
-  description: "Compare Ann Arbor housing against your priorities.",
-};
+export const metadata: Metadata = { title: "Hack the Lease", description: "Find housing that fits your week." };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en" {...mantineHtmlProps}>
-      <head>
-        <ColorSchemeScript defaultColorScheme="light" />
-      </head>
-      <body>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  );
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html lang="en"><body><Providers>{children}</Providers></body></html>;
 }

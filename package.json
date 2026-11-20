@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1 --port 8000",
     "build": "next build --webpack",
-    "start": "next start",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "start": "next start --hostname 127.0.0.1 --port 8000",
+    "test": "vitest run src/lib && pnpm test:matching",
+    "typecheck": "tsc --noEmit",
+    "test:matching": "node --import ./tests/typescript-loader.mjs --test tests/catalog-matches.test.ts"
   },
   "dependencies": {
     "@mantine/core": "^9.8.1",
@@ -28,5 +29,6 @@
     "@types/react-dom": "^19.3.0",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"
-  }
+  },
+  "packageManager": "pnpm@11.25.0"
 }

@@ -1,0 +1,38 @@
+.page { min-height: 100vh; background: #fff; color: #191919; a { color: inherit; text-decoration: none; } button { font: inherit; } button:disabled { cursor: not-allowed; opacity: 1; } a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid #191919; outline-offset: 4px; } }
+.header { height: 76px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; position: relative; }
+.brand { font-size: 23px; font-weight: 700; }
+.search { position: absolute; left: 33.8%; width: 32.4%; height: 42px; display: flex; align-items: center; gap: 12px; padding: 0 17px; border: 1px solid #666; border-radius: 6px; background: #fff; font-size: 16px; }
+.student { display: flex; gap: 9px; align-items: center; font-size: 13px; max-width: 22%; > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+.avatar { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border-radius: 6px; background: #f0f0f0; }
+.main { width: 77.4%; margin: 0 auto; padding: 24px 0 70px; }
+.topline { position: absolute; top: 76px; left: 11.3%; right: 11.3%; display: flex; justify-content: space-between; font-size: 10px; color: #666; }
+.grid { display: grid; grid-template-columns: 54% 31%; gap: 15%; align-items: start; }
+.photo { width: 78.5%; margin-left: 21.5%; aspect-ratio: .8; position: relative; overflow: hidden; border-radius: 20px; background: #f0f0f0; img { object-fit: cover; } }
+.credit { position: absolute; bottom: 10px; left: 10px; right: 10px; font-size: 9px; color: #fff !important; text-shadow: 0 1px 4px #000; }
+.fallback { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-size: 13px; }
+.places { margin-top: 78px; h2 { font-size: 22px; margin: 0 0 22px; } }
+.placeGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; strong { font-size: 23px; font-weight: 400; } p { margin: 5px 0; font-size: 13px; } small { font-size: 10px; color: #666; } }
+.location { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 14px; > span { width: 30px; height: 30px; display: grid; place-items: center; background: #f7f7f5; border: 1px solid #666; border-radius: 3px; flex-shrink: 0; } }
+.title { display: flex; justify-content: space-between; align-items: start; gap: 12px; h1 { font-size: 17px; line-height: 1.3; margin: 0; } p { font-size: 13px; margin: 3px 0 0; span { color: #666; margin-left: 4px; } } }
+.save { height: 38px; width: 38px; flex-shrink: 0; display: grid; place-items: center; background: #dadada; border: 1px solid #666; border-radius: 6px; color: #191919; cursor: pointer; &[aria-pressed='true'] svg { fill: #191919; } }
+.rent { margin-top: 20px; font-size: 21px; span { font-size: 11px; color: #666; } }
+.budget { font-size: 13px; margin: 5px 0 26px; color: #666; }
+.facts { margin: 0 0 24px; > div { min-height: 57px; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-bottom: 1px solid #eee; padding: 12px 0; } dt { font-size: 16px; font-weight: 700; } dd { font-size: 14px; margin: 0; text-align: right; } }
+.actions { display: flex; flex-direction: column; gap: 8px; }
+.primary, .secondary, .source { min-height: 42px; width: 100%; border-radius: 6px; border: 1px solid #666; background: #fff; color: #191919; font-size: 15px !important; padding: 9px 12px; text-align: center; }
+.primary { background: #191919; border-color: #191919; color: #dadada; }
+.footnote { font-size: 9px; line-height: 1.5; color: #777; margin: 8px 0; }
+.actions .footnote { text-align: center; margin: 0 0 4px; }
+.description { margin-top: 38px; h2 { font-size: 17px; margin: 0 0 10px; } p { font-size: 15px; line-height: 1.45; margin: 0 0 16px; } }
+.source { font-size: 13px !important; span { margin-left: 8px; } }
+.breakdown { margin-top: 25px; summary { font-size: 14px; cursor: pointer; } dl { margin-bottom: 0; } dl > div { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 10px 0; font-size: 13px; } small { display: block; font-size: 10px; color: #666; } dd { margin: 0; } }
+.unavailable { padding: 32px; }
+@media (min-width: 681px) and (max-width: 1000px) { .main { width: 88%; } .topline { left: 6%; right: 6%; } .grid { grid-template-columns: 53% 35%; gap: 12%; } .photo { width: 85%; margin-left: 15%; aspect-ratio: .7; } .search { font-size: 13px; } .facts { dt { font-size: 14px; } dd { font-size: 12px; } } }
+@media (max-width: 680px) { .header { height: 120px; align-items: flex-start; padding: 18px 20px; } .brand { font-size: 20px; } .student { max-width: 36%; } .search { left: 20px; right: 20px; top: 66px; width: auto; font-size: 14px; } .main { width: auto; margin: 0 20px; padding-top: 0; } .topline { position: static; margin: 0 0 18px; font-size: 11px; } .grid { display: flex; flex-direction: column; gap: 28px; } .visual { display: contents; } .photo { order: 0; width: 100%; margin: 0; aspect-ratio: .86; } .details { order: 1; width: 100%; } .places { order: 2; width: 100%; margin-top: 10px; } .placeGrid { gap: 12px; } .title h1 { font-size: 21px; } .footnote { font-size: 10px; } }
+
+.gallery { width: 100%; }
+.photoPicker { display: flex; overflow-x: auto; gap: 8px; width: 78.5%; margin: 10px 0 0 21.5%; padding-bottom: 6px; button { flex-shrink: 0; padding: 2px; background: #fff; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; } button[aria-pressed='true'] { border: 2px solid #191919; padding: 1px; } img { display: block; object-fit: cover; border-radius: 3px; } }
+a.secondary, a.source { display: flex; align-items: center; justify-content: center; }
+.breakdown ul { padding-left: 18px; font-size: 12px; line-height: 1.6; }
+@media (min-width: 681px) and (max-width: 1000px) { .photoPicker { width: 85%; margin-left: 15%; } }
+@media (max-width: 680px) { .gallery { order: 0; } .photoPicker { width: 100%; margin-left: 0; } }

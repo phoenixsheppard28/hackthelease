@@ -1,0 +1,42 @@
+# Hack the Lease
+
+Next.js App Router, React, TypeScript, Mantine, Sass modules, TanStack Query, Zod, and pnpm, following docs/TECH_STACK.md.
+
+## Run
+
+Install with `pnpm install`, then `pnpm dev`. Open http://localhost:8000.
+Use `pnpm typecheck` and `pnpm build` to check the application.
+
+## Profiles
+
+Set SUPABASE_URL and SUPABASE_SECRET_KEY in .env.local. Apply supabase/migrations/20261120060000_housing_profiles.sql in the Supabase SQL editor.
+
+Completed profiles save through /api/profiles. The demo starts with no seeded students. Survey answers stay in React memory until submission. The demo picker provides shared access to profiles.
+
+## Calendar
+
+Optional Google Calendar OAuth uses server routes. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, and configure the redirect URI http://localhost:8000/api/calendar/callback in Google Cloud. Set APP_BASE_URL for a deployed origin. The server stores the short-lived access token in an HTTP-only cookie and fetches the next 30 events. Students confirm locations before those events enter their profile.
+
+## Frontend
+
+src/components/onboarding owns the survey, icons, question definitions, and Sass module. Aperçu Pro regular and bold are bundled locally. Choice shortcuts A–G, Tab, Enter, previous/next controls, directional transitions, and reduced-motion support are implemented.
+
+The supplied reference uses a 1512 × 945 CSS viewport, a 56px header, 16px outer gutters, a centered 720px question column, and 8px choice gaps. The theme retains the requested Aperçu Pro typeface, smaller type, the supplied reference’s grayscale palette, and Continue without a checkmark.
+
+## Live listing browse and detail pages
+
+`POST /api/matches` now reads active, non-demo rows from Supabase `listings`, joining `listing_images`. Public images come from the existing `listing-images` storage bucket. No database migration is required for this integration. The server uses the existing `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (or service role key); credentials and listing vectors are never returned to the browser.
+
+The request stays `{ profile, weights }` for the questionnaire. An optional UUID `listingId` loads a single home, including a home that no longer meets the student's requirements. The response is `{ matches, totalListings, notices }`. Cards and details share `ListingMatch` in `src/lib/contracts/listing-match.ts`. Advertised per-unit/per-person rent is preserved; per-person estimates are separately labeled.
+
+The shared `housing.ts` contract, `matching/rank.ts` firm checks and component formulas, and embedding helper were brought in from `origin/main` at `06131a3`. `catalog-matches.ts` maps the questionnaire profile to that contract and applies the four numeric sliders. Confirmed budget and bedroom failures are excluded from the shortlist; unknown fields stay visible with verification flags. Home fit currently scores bedroom adequacy, not property type or permitted room occupancy. Location remains unscored until routing data is connected. Lifestyle uses the existing listing vectors when `OPENAI_API_KEY` is configured; otherwise it is explicitly excluded. Available category weights are renormalized. There is no fixture fallback if Supabase fails.
+
+`/listings-preview` uses a sample student profile against the **live** catalog and never writes a student. Real photos, source links and available `mailto:` / `tel:` actions are wired; day simulation remains unavailable.
+
+Run the adapter checks with `pnpm test:matching`, then `pnpm typecheck` and `pnpm build`.
+
+The existing `POST /api/rank` endpoint retains the recommendations team’s core `HousingProfile` contract. The questionnaire uses `POST /api/matches` for its profile and four slider weights. Firecrawl ingestion, refresh endpoints, and their migrations remain intact.
+
+## Known limitations
+
+Location scoring and day simulation are not implemented. Home fit only checks bedroom adequacy. Result-page weight edits are session-only and reset when a student is reopened. Favorites are browser-local. Calendar connection state is shared within a browser session, and refreshed events can clear confirmed locations. Catalog validation currently fails the whole request on a malformed listing. These are known follow-up items, not resolved by this integration.
