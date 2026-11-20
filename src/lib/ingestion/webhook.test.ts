@@ -19,6 +19,7 @@ const runSourceId = '6f1c2b8e-4a0d-4c47-9a53-0d6c1f2e7b10';
 const runSourceRow = {
   id: runSourceId,
   inventoryUrl: 'https://example.com/inventory',
+  contactEmail: null,
   crawl_run_id: 'run-1',
   source_id: 'source-1',
   status: 'running' as const,
@@ -173,6 +174,26 @@ describe('processFirecrawlEvent page events', () => {
       runSourceId,
     );
     expect(crawlRuns.incrementCrawlRunSourceCounts).not.toHaveBeenCalled();
+  });
+
+  it('passes the source email into the stored listing and observation', async () => {
+    vi.mocked(crawlRuns.getCrawlRunSource).mockResolvedValue({ ...runSourceRow, contactEmail: 'leasing@cabrioproperties.com' });
+    vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
+    const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });
+
+    await processFirecrawlEvent(body, sign(body));
+
+    expect(crawlRuns.storeObservation).toHaveBeenCalledWith(expect.objectContaining({
+      normalized: expect.objectContaining({ contact: {
+        name: null, email: 'leasing@cabrioproperties.com', phone: null,
+      } }),
+    }));
+    expect(listings.recordObservedListing).toHaveBeenCalledWith(
+      expect.objectContaining({ contact: {
+        name: null, email: 'leasing@cabrioproperties.com', phone: null,
+      } }),
+      'source-1', 'observation-1', runSourceId,
+    );
   });
 
   it('embeds the recorded listing when its embedding is missing', async () => {

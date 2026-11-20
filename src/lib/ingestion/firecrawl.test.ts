@@ -16,7 +16,7 @@ describe('startCrawl', () => {
 
     await startCrawl({
       id: 'source-1', provider: 'Cabrio', inventory_url: 'https://showmojo.com/8f47a0401c/l',
-      allowed_domains: ['showmojo.com'], listing_patterns: ['^/l/'], is_enabled: true,
+      allowed_domains: ['showmojo.com'], listing_patterns: ['^/l/'], contact_email: null, is_enabled: true,
       last_successful_refresh_at: null, created_at: '2026-11-19T00:00:00Z',
     }, 'run-source-1');
 

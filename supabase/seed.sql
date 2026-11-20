@@ -20,6 +20,14 @@ values
 on conflict (inventory_url) do nothing;
 
 update public.sources as source
+set contact_email = contacts.email
+from (values
+  ('Oxford Companies', 'leasing@oxfordcompanies.com'),
+  ('Cabrio Properties', 'leasing@cabrioproperties.com')
+) as contacts(provider, email)
+where source.provider = contacts.provider;
+
+update public.sources as source
 set listing_patterns = patterns.paths
 from (values
   ('Oxford Companies', array['^/searchlisting$', '^/apartments/mi/ann-arbor/']),

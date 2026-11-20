@@ -11,6 +11,7 @@ const source = (id: string, url: string) => ({
   id,
   provider: id,
   inventory_url: url,
+  contact_email: null,
   allowed_domains: [],
   listing_patterns: [],
   is_enabled: true,

@@ -136,4 +136,38 @@ describe('page extraction schema', () => {
       phone: '734-555-0100',
     });
   });
+
+  it('uses the company email when a listing has no valid email', () => {
+    const noContact = listingFromExtraction(
+      { isListingPage: true, listing: extractedListing }, pageUrl, fetchedAt, 'leasing@cabrioproperties.com',
+    );
+    const invalidEmail = listingFromExtraction(
+      { isListingPage: true, listing: { ...extractedListing, contact: {
+        name: 'Leasing', email: 'call us', phone: '734-555-0100',
+      } } },
+      pageUrl,
+      fetchedAt,
+      'leasing@cabrioproperties.com',
+    );
+
+    expect(noContact.kind === 'listing' && noContact.listing.contact).toEqual({
+      name: null, email: 'leasing@cabrioproperties.com', phone: null,
+    });
+    expect(invalidEmail.kind === 'listing' && invalidEmail.listing.contact).toEqual({
+      name: 'Leasing', email: 'leasing@cabrioproperties.com', phone: '734-555-0100',
+    });
+  });
+
+  it('keeps a valid listing email ahead of the company email', () => {
+    const result = listingFromExtraction(
+      { isListingPage: true, listing: { ...extractedListing, contact: {
+        name: 'Leasing', email: 'unit@example.com', phone: null,
+      } } },
+      pageUrl,
+      fetchedAt,
+      'leasing@cabrioproperties.com',
+    );
+
+    expect(result.kind === 'listing' && result.listing.contact?.email).toBe('unit@example.com');
+  });
 });

@@ -47,6 +47,7 @@ export function listingFromExtraction(
   extraction: unknown,
   pageUrl: string,
   fetchedAt: string,
+  fallbackEmail: string | null = null,
 ): ExtractionResult {
   const page = PageExtractionSchema.safeParse(extraction);
   if (!page.success) {
@@ -66,6 +67,9 @@ export function listingFromExtraction(
   }
 
   const { amenities, contact, imageUrls, ...fields } = page.data.listing;
+  const email = z.email().safeParse(contact?.email).success
+    ? contact?.email
+    : z.email().safeParse(fallbackEmail).success ? fallbackEmail : null;
   const availability = fields.availableFrom?.trim();
   const availableFrom = /^available now$|^now$/i.test(availability ?? '')
     ? fetchedAt.slice(0, 10)
@@ -82,11 +86,11 @@ export function listingFromExtraction(
     ...fields,
     availableFrom,
     amenities: amenityMap,
-    contact: contact && {
-      name: contact.name || null,
-      email: z.email().safeParse(contact.email).success ? contact.email : null,
-      phone: contact.phone || null,
-    },
+    contact: contact || email ? {
+      name: contact?.name || null,
+      email,
+      phone: contact?.phone || null,
+    } : null,
     id: pageUrl,
     isActive: true,
     sources: [{ url: pageUrl, fetchedAt }],

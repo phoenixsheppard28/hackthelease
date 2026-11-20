@@ -274,6 +274,7 @@ export type Database = {
       sources: {
         Row: {
           allowed_domains: string[]
+          contact_email: string | null
           created_at: string
           id: string
           inventory_url: string
@@ -284,6 +285,7 @@ export type Database = {
         }
         Insert: {
           allowed_domains?: string[]
+          contact_email?: string | null
           created_at?: string
           id?: string
           inventory_url: string
@@ -294,6 +296,7 @@ export type Database = {
         }
         Update: {
           allowed_domains?: string[]
+          contact_email?: string | null
           created_at?: string
           id?: string
           inventory_url?: string

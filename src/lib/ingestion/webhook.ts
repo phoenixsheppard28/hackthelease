@@ -119,7 +119,7 @@ async function processPage(
   const fetchedAt = new Date().toISOString();
   const extraction = pageUrl.split('?')[0] === runSource.inventoryUrl.split('?')[0]
     ? { kind: 'not_listing' as const }
-    : listingFromExtraction(json, pageUrl, fetchedAt);
+    : listingFromExtraction(json, pageUrl, fetchedAt, runSource.contactEmail);
   const listing = extraction.kind === 'listing' ? extraction.listing : null;
 
   let observationId = await storeObservation({
