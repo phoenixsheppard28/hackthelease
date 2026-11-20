@@ -124,7 +124,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
       <Link href="/" className={styles.student} aria-label={`Switch student, currently ${profile.name}`}><span className={styles.avatar}>{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}</span></Link>
     </header>
     <main className={styles.main}>
-      <div className={styles.topline}><Link href={back}>← Back to matches</Link><span>Last checked {date}</span></div>
+      <div className={styles.topline}><Link href={back}>← Back to matches</Link></div>
       <div className={styles.grid}>
         <section className={styles.visual} aria-label="Listing photo and nearby places">
           <div className={styles.gallery}>

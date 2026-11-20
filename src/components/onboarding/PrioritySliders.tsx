@@ -46,7 +46,6 @@ export function PrioritySliders({ weights, onChange, disabled = false }: {
     </div>
     <div className={styles.priorityScale} aria-hidden="true"><span>0 · Not important</span><span>100 · Very important</span></div>
     <div className={styles.priorityFooter}>
-      <p>Higher numbers give a preference more influence.</p>
       <UnstyledButton className={styles.resetPriorities} disabled={disabled || isDefault} onClick={() => onChange({ ...defaultWeights })}>Reset to defaults</UnstyledButton>
     </div>
   </section>;

@@ -27,6 +27,6 @@ export function DestinationTime({ origin, destination, place, loading, limit }: 
       : loading ? 'Finding a walking route' : walkingStatusText(place?.status ?? 'unavailable')}</p>
     {needsBus && !bus && <p>{transit.isPending ? 'Checking bus time…' : transit.isError ? 'Bus estimate unavailable; showing walk' : 'No bus route found; showing walk'}</p>}
     {bus && <small>Walking alternative: {place!.minutes} min. </small>}
-    <small>{limit === undefined ? 'No walking limit set' : !available ? `Your preference: ${limit} min` : place.minutes! <= limit ? `Within your ${limit} min preference` : `${place.minutes! - limit} min over your ${limit} min walking preference`}</small>
+    {limit !== undefined && <small>{!available ? `Your preference: ${limit} min` : place.minutes! <= limit ? `Within your ${limit} min preference` : `${place.minutes! - limit} min over your ${limit} min walking preference`}</small>}
   </>;
 }

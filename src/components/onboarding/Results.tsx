@@ -197,14 +197,13 @@ export function Results({ profile, profileId = "current", onBack, initialBrowse,
     </div>
     <main className={styles.main}>
       {view === "inbox" ? <>
-        <div className={styles.headingRow}><div><h1>{group.data?.group?.name ?? "Group"} inbox</h1><p>Landlord replies and agent-drafted responses</p></div></div>
+        <div className={styles.headingRow}><h1>{group.data?.group?.name ?? "Group"} inbox</h1></div>
         <GroupInbox inbox={groupId ? inbox.data : { configured: false, groupId: null, inboxEmail: null, threads: [] }} members={group.data?.group?.members ?? []} profileId={profileId} error={inbox.error?.message} onChange={() => inbox.refetch()} />
       </> : <>
       <div className={styles.headingRow}>
-        <div><h1>{view === "saved" ? groupId ? "Your group's saved homes" : "Your saved homes" : groupId ? `${group.data?.group?.name} matches` : "Your best matches in Ann Arbor"}</h1><p>{matches.isPending ? "Finding homes and checking your priorities…" : `${homes.length} ${homes.length === 1 ? "home" : "homes"}`}<span>{allZero ? ' · Set priorities to rank' : ' · Best match first'}</span></p></div>
+        <div><h1>{view === "saved" ? groupId ? "Your group's saved homes" : "Your saved homes" : groupId ? `${group.data?.group?.name} matches` : "Your best matches in Ann Arbor"}</h1><p>{matches.isPending ? "Finding homes and checking your priorities…" : `${homes.length} ${homes.length === 1 ? "home" : "homes"}`}{allZero && <span> · Set priorities to rank</span>}</p></div>
         <UnstyledButton className={styles.prioritiesButton} onClick={openPriorities}><Icon name="sliders" size={18} />Your priorities</UnstyledButton>
       </div>
-      <p className={styles.demoNote}>Live listings · {matches.data ? pricedMatches.length : "…"} matching homes with listed rent</p>
       {matches.data && <details className={styles.matchingNotes}><summary>What’s included in your match?</summary>{matches.data.notices.map(notice => <p key={notice}>{notice}</p>)}</details>}
       {matches.data?.matches.some(home => home.destinations.some(place => place.status === 'ok')) && <p className={styles.demoNote}>Walking estimates: Google Maps · May not include all sidewalks or pedestrian paths. Building access and weather can change your trip.</p>}
       <div aria-live="polite" className={styles.loadingStatus}>{matches.isFetching && !matches.isPending ? "Updating your matches…" : ""}</div>

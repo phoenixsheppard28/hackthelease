@@ -771,12 +771,13 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                     </p>
                   )}
                   {calendar.data?.message && <p role="status" className={styles.status}>{calendar.data.message}</p>}
-                  {calendar.data?.scan && <div className={styles.status} role="status">
+                  {calendar.data?.scan && <details className={styles.status}>
+                    <summary>Calendar scan details</summary>
                     <p>Checked {calendar.data.scan.eventsRead} events across {calendar.data.scan.calendarsRead} calendars in the past 30 days.</p>
                     {calendar.data.scan.missingLocation > 0 && <p>Skipped {calendar.data.scan.missingLocation} events without an identifiable physical place in their title or location.</p>}
                     {(calendar.data.scan.allDay > 0 || calendar.data.scan.online > 0 || calendar.data.scan.excluded > 0) && <p>Skipped {calendar.data.scan.allDay} all-day, {calendar.data.scan.online} online, and {calendar.data.scan.excluded} canceled or declined events.</p>}
-                    {calendar.data.scan.calendarsFailed > 0 && <p role="alert">Could not read {calendar.data.scan.calendarsFailed} calendars. These results are incomplete.</p>}
-                  </div>}
+                  </details>}
+                  {calendar.data?.scan && calendar.data.scan.calendarsFailed > 0 && <p role="alert" className={styles.status}>Could not read {calendar.data.scan.calendarsFailed} calendars. These results are incomplete.</p>}
                   {calendar.data?.connected && <UnstyledButton className={styles.retry} disabled={calendar.isFetching} onClick={() => {
                     setReviewCalendar(true);
                     setCalendarConnection(current => current + 1);
@@ -787,7 +788,6 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                     </p>
                   )}
                   <div className={styles.calendarLocations}>
-                    {calendarPlaces.length > 0 && <p className={styles.status}>{calendar.data?.scan ? `Your top ${calendarPlaces.length} events by scheduled visits in the past 30 days.` : "Your saved Calendar events."} Event titles identify the entries. Locations provide travel addresses. Review or exclude each entry before continuing.</p>}
                     {calendarPlaces.map((place, index) => (
                       <div key={index} className={styles.calendarPlace}>
                         <p className={styles.status}>{index + 1}. {place.count} scheduled {place.count === 1 ? 'visit' : 'visits'}</p>

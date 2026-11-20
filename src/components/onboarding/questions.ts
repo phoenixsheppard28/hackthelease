@@ -17,7 +17,7 @@ const questions: Question[] = [
   { key: "calendar", title: "Connect your Google Calendar?", emphasis: "Google Calendar", kind: "calendar", description: "Find your most frequent events from the past 30 days across your calendars, including course calendars. Review each event and its destination before it affects your matches." },
   { key: "budget", title: "What’s your monthly rent limit?", emphasis: "monthly rent limit", kind: "number", min: 1, max: 100000, description: "Enter your budget in US dollars." },
   { key: "basis", title: "Who does that budget cover?", emphasis: "budget", kind: "choices", options: ["Just me", "Our whole group"] },
-  { key: "hubs", title: "Which three places do you visit most?", emphasis: "three places", kind: "multiple", options: campusHubs, description: "Choose three campus destinations." },
+  { key: "hubs", title: "Which three places do you visit most?", emphasis: "three places", kind: "multiple", options: campusHubs },
   { key: "walk", title: "How long would you walk to each place?", emphasis: "walk", kind: "distances", description: "Your maximum walk, in minutes. Leave any blank if you don’t have a limit." },
   { key: "roommates", title: "How many roommates will you have?", emphasis: "roommates", kind: "number", min: 0, max: 20, description: "Count everyone you’ll live with, apart from yourself." },
   { key: "type", title: "Where would you like to live?", emphasis: "live", kind: "choices", options: ["House", "Apartment", "Either"] },
@@ -32,7 +32,7 @@ const questions: Question[] = [
   { key: "food", title: "Where do you usually eat?", emphasis: "eat", kind: "choices", options: ["Dining hall", "Cook at home", "A mix"] },
   { key: "group", title: "Who are you rooming with?", emphasis: "rooming with", kind: "choices", options: ["Already have a group", "Open to random roommates", "A mix"] },
   { key: "interests", title: "What else makes a place feel like home?", emphasis: "feel like home", kind: "textarea", description: "Pickup basketball at the IM? Late nights at the Fishbowl? Tell us what matters to you." },
-  { key: "weights", title: "What matters most to you?", emphasis: "most to you?", kind: "priorities", description: "Adjust all four preferences to find your balance." },
+  { key: "weights", title: "What matters most to you?", emphasis: "most to you?", kind: "priorities" },
 ];
 
 export function visibleQuestions(profile: ProfileDraft) {

@@ -314,7 +314,6 @@
 .priorityScale { display: flex; justify-content: space-between; gap: 12px; margin-left: 168px; padding-right: 52px; margin-top: 10px; font-size: 11px; line-height: 16px; color: var(--survey-description); }
 .priorityFooter {
   display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-top: 28px;
-  p { margin: 0; font-size: 12px; line-height: 18px; color: var(--survey-description); }
 }
 .resetPriorities { font-size: 12px; text-decoration: underline; text-underline-offset: 3px; &:disabled { color: var(--survey-description); cursor: default; text-decoration: none; } }
 .priorityPanel { padding: 40px 0; }
@@ -324,7 +323,6 @@
 }
 .priorityPanel .content { width: min(640px, calc(100% - 64px)); }
 .previewBrand { color: var(--survey-ink); text-decoration: none; }
-.previewCaption { color: var(--survey-description); font-size: 14px; }
 .previewNote { color: var(--survey-description); font-size: 12px; line-height: 18px; margin: 0; }
 .result {
   border-top: 1px solid #ccc;
