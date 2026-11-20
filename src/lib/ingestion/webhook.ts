@@ -9,8 +9,8 @@ import {
   markSourceRefreshed,
   storeObservation,
   updateCrawlRunSource,
+  type CrawlRunSourceWithInventory,
 } from '../supabase/crawl-runs';
-import type { CrawlRunSourceRow } from '../supabase/crawl-run-rows';
 import type { Json } from '../supabase/database.types';
 import { embedMissingListings } from '../embeddings/listings';
 import { listUnembeddedListings, recordObservedListing } from '../supabase/listings';
@@ -102,7 +102,7 @@ export async function processFirecrawlEvent(
   }
 }
 
-async function processPages(runSource: CrawlRunSourceRow, pages: FirecrawlPage[]): Promise<FirecrawlEventResult> {
+async function processPages(runSource: CrawlRunSourceWithInventory, pages: FirecrawlPage[]): Promise<FirecrawlEventResult> {
   const results = [];
   for (const page of pages) {
     results.push(await processPage(runSource, page));
@@ -112,11 +112,13 @@ async function processPages(runSource: CrawlRunSourceRow, pages: FirecrawlPage[]
 }
 
 async function processPage(
-  runSource: CrawlRunSourceRow,
+  runSource: CrawlRunSourceWithInventory,
   { json, pageUrl }: FirecrawlPage,
 ): Promise<'processed' | 'duplicate'> {
   const fetchedAt = new Date().toISOString();
-  const extraction = listingFromExtraction(json, pageUrl, fetchedAt);
+  const extraction = pageUrl.split('?')[0] === runSource.inventoryUrl.split('?')[0]
+    ? { kind: 'not_listing' as const }
+    : listingFromExtraction(json, pageUrl, fetchedAt);
   const listing = extraction.kind === 'listing' ? extraction.listing : null;
 
   let observationId = await storeObservation({
@@ -164,7 +166,7 @@ async function embedListingSafely(listingId: string): Promise<void> {
 }
 
 async function finishSource(
-  runSource: CrawlRunSourceRow,
+  runSource: CrawlRunSourceWithInventory,
   succeeded: boolean,
   error: string | null | undefined,
 ): Promise<FirecrawlEventResult> {

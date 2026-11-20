@@ -16,6 +16,7 @@ const runSourceId = '6f1c2b8e-4a0d-4c47-9a53-0d6c1f2e7b10';
 
 const runSourceRow = {
   id: runSourceId,
+  inventoryUrl: 'https://example.com/inventory',
   crawl_run_id: 'run-1',
   source_id: 'source-1',
   status: 'running' as const,
@@ -136,6 +137,14 @@ describe('processFirecrawlEvent input checks', () => {
 });
 
 describe('processFirecrawlEvent page events', () => {
+  it('does not publish a listing extracted from the inventory page', async () => {
+    vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
+    const body = pageEvent(runSourceRow.inventoryUrl, { isListingPage: true, listing: extractedListing });
+
+    expect(await processFirecrawlEvent(body, sign(body))).toEqual({ status: 'processed' });
+    expect(listings.recordObservedListing).not.toHaveBeenCalled();
+  });
+
   it('ignores page events after the run source failed', async () => {
     vi.mocked(crawlRuns.getCrawlRunSource).mockResolvedValue({ ...runSourceRow, status: 'failed' });
     const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });

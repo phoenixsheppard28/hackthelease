@@ -9,6 +9,7 @@ import { supabaseAdmin } from "./server";
 
 type Tables = Database["public"]["Tables"];
 export type SourceRow = Tables["sources"]["Row"];
+export type CrawlRunSourceWithInventory = CrawlRunSourceRow & { inventoryUrl: string };
 export type CrawlRunUpdate = Pick<
   Tables["crawl_runs"]["Update"],
   "status" | "started_at" | "finished_at"
@@ -201,17 +202,17 @@ export async function storeObservation(
 
 export async function getCrawlRunSource(
   crawlRunSourceId: string,
-): Promise<CrawlRunSourceRow | null> {
+): Promise<CrawlRunSourceWithInventory | null> {
   const { data, error } = await supabaseAdmin()
     .from("crawl_run_sources")
-    .select("*")
+    .select("*, sources(inventory_url)")
     .eq("id", crawlRunSourceId)
     .maybeSingle();
   if (error) {
     throw error;
   }
 
-  return data;
+  return data && { ...data, inventoryUrl: data.sources.inventory_url };
 }
 
 export type StoredObservation = Pick<

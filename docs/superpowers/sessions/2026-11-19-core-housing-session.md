@@ -123,7 +123,7 @@ The recommendation is to use `extract`. This change goes against the spec, which
 - Firecrawl does not guarantee the order of events.
 - The `upsertListing` export has no callers.
 
-## Continuation: 22:03–22:19 EST
+## Continuation: 22:03–22:23 EST
 
 The implementation kept Firecrawl crawls and signed webhooks. The Vercel app is live at [Hack the Lease](https://hack-the-lease.vercel.app).
 
@@ -135,7 +135,11 @@ The production home page and ranking route return HTTP 200. The ranking route re
 
 The demo screen now accepts a manual profile, changes priority order, shows the top six matches, and explains scores and uncertain fields. The refresh monitor accepts a team access token and shows run counts. No Supabase Auth users exist yet, so the production refresh route cannot authorize a team member.
 
-The local checks pass: 88 tests, TypeScript, and the production build. Desktop and mobile screenshots show the results screen.
+The local checks pass: 89 tests, TypeScript, and the production build. Desktop and mobile screenshots show the results screen.
+
+A second, two-page crawl sent real callbacks to the deployed Vercel route. The run succeeded with zero failed pages. The production ranking order changed when the priority order changed. The smoke run exposed an inventory page that Firecrawl treated as one listing. The webhook now blocks inventory pages from listing writes. The two smoke-test listings were removed, and the Cabrio URL pattern was restored.
+
+The user chose to keep production refresh disabled until a team account is ready. The production refresh route returns 401 without a valid allowed user token.
 
 ### Remaining work by `task.md` section
 
