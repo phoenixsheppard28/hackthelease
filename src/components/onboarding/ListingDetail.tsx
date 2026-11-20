@@ -36,7 +36,9 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
       return response.json();
     },
   });
-  const personalListing = useListingEvidence(profileId, profile, listingId, !groupId && (profileId === "demo-preview" || group.isSuccess));
+  // Personal destinations belong to the viewing student, including in group mode.
+  // This query is separate from the polling group score and reuses route evidence.
+  const personalListing = useListingEvidence(profileId, profile, listingId, profileId === "demo-preview" || group.isSuccess);
   const groupListing = useQuery<ListingMatchesResponse>({
     queryKey: ["live-listing", listingId, groupId], enabled: Boolean(groupId),
     refetchInterval: groupId ? 15000 : false,
@@ -48,6 +50,7 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
   });
   const listing = groupId ? groupListing : personalListing;
   const home = groupId ? listing.data?.matches[0] : reweightMatches(listing.data?.matches ?? [], weights)[0];
+  const personalDestinations = personalListing.data?.matches.find(item => item.id === listingId)?.destinations ?? [];
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [failedPhoto, setFailedPhoto] = useState(false);
@@ -113,18 +116,20 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
             </div>
             {home.images.length > 1 && <div className={styles.photoPicker} aria-label="Property photos">{home.images.map((image, index) => <button key={image} aria-label={`Show photo ${index + 1}`} aria-pressed={index === photoIndex} onClick={() => { setPhotoIndex(index); setFailedPhoto(false); }}><Image src={image} alt="" width={56} height={56} /></button>)}</div>}
           </div>
-          <section className={styles.places}><h2>{groupId ? "Travel from this home" : "Your places, from here"}</h2>{!groupId && <>
-            <div className={styles.placeGrid}>{home.destinations.map(place => {
-              const limit = profile.walk[place.name];
-              const available = place.status === 'ok' && place.minutes !== null;
-              return <div key={place.name}><p>{place.name}</p>
-                <strong>{available ? `${place.minutes} min` : 'Not available'}</strong>
-                <p>{available ? `walk${place.distanceMeters !== null ? ` · ${(place.distanceMeters / 1000).toFixed(1)} km` : ''}` : walkingStatusText(place.status)}</p>
+          <section className={styles.places}><h2>Your places, from here</h2>
+            {groupId && <p className={styles.footnote}>Walking times to the three places in your profile.</p>}
+            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{profile.hubs.map(name => {
+              const place = personalDestinations.find(item => item.name === name);
+              const limit = profile.walk[name];
+              const available = place?.status === 'ok' && place.minutes !== null;
+              return <div key={name}><p>{name}</p>
+                <strong>{available ? `${place.minutes} min` : personalListing.isPending ? 'Checking…' : 'Not available'}</strong>
+                <p>{available ? `walk${place.distanceMeters !== null ? ` · ${(place.distanceMeters / 1000).toFixed(1)} km` : ''}` : personalListing.isPending ? 'Finding a walking route' : walkingStatusText(place?.status ?? 'unavailable')}</p>
                 <small>{limit === undefined ? 'No walking limit set' : !available ? `Your preference: ${limit} min` : place.minutes! <= limit ? `Within your ${limit} min preference` : `${place.minutes! - limit} min over your ${limit} min preference`}</small>
               </div>;
             })}</div>
+            {personalListing.isError && <p role="alert">Couldn’t load walking times. <button onClick={() => personalListing.refetch()}>Retry walking times</button></p>}
             <p className={styles.footnote}>Walking estimates: Google Maps. Routes may not include all sidewalks or pedestrian paths. Times are to the building; allow extra time for entry, weather, and accessibility needs.</p>
-            </>}
             <TravelTimes key={home.id} origin={home.address} />
           </section>
         </section>
