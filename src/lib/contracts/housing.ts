@@ -16,36 +16,36 @@ const sourceSchema = z.object({
   evidence: z.string().optional(),
 });
 
-export const ListingSchema = z
-  .object({
-    id: z.string().min(1),
-    address: z.string().min(1),
-    unit: z.string().min(1).nullable(),
-    rentMin: moneySchema.nullable(),
-    rentMax: moneySchema.nullable(),
-    rentBasis: RentBasisSchema,
-    recurringFeesMonthly: moneySchema.nullable(),
-    beds: z.number().int().nonnegative().nullable(),
-    availableFrom: z.iso.date().nullable(),
-    accessible: z.boolean().nullable(),
-    amenities: z.record(z.string(), z.boolean().nullable()),
-    features: z.array(z.string()),
-    description: z.string().nullable(),
-    contact: z
-      .object({
-        name: z.string().min(1).nullable(),
-        email: z.email().nullable(),
-        phone: z.string().min(1).nullable(),
-      })
-      .nullable(),
-    sources: z.array(sourceSchema).min(1),
-    isActive: z.boolean(),
-  })
-  .refine(
-    ({ rentMin, rentMax }) =>
-      rentMax === null || (rentMin !== null && rentMax >= rentMin),
-    { path: ['rentMax'], message: 'Maximum rent must be at least minimum rent.' },
-  );
+export const ListingFieldsSchema = z.object({
+  id: z.string().min(1),
+  address: z.string().min(1),
+  unit: z.string().min(1).nullable(),
+  rentMin: moneySchema.nullable(),
+  rentMax: moneySchema.nullable(),
+  rentBasis: RentBasisSchema,
+  recurringFeesMonthly: moneySchema.nullable(),
+  beds: z.number().int().nonnegative().nullable(),
+  availableFrom: z.iso.date().nullable(),
+  accessible: z.boolean().nullable(),
+  amenities: z.record(z.string(), z.boolean().nullable()),
+  features: z.array(z.string()),
+  description: z.string().nullable(),
+  contact: z
+    .object({
+      name: z.string().min(1).nullable(),
+      email: z.email().nullable(),
+      phone: z.string().min(1).nullable(),
+    })
+    .nullable(),
+  sources: z.array(sourceSchema).min(1),
+  isActive: z.boolean(),
+});
+
+export const ListingSchema = ListingFieldsSchema.refine(
+  ({ rentMin, rentMax }) =>
+    rentMax === null || (rentMin !== null && rentMax >= rentMin),
+  { path: ['rentMax'], message: 'Maximum rent must be at least minimum rent.' },
+);
 
 export type Listing = z.infer<typeof ListingSchema>;
 

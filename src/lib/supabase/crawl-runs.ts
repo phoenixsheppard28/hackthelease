@@ -161,3 +161,64 @@ export async function storeObservation(observation: ObservationInput): Promise<s
 
   return data[0]?.id ?? null;
 }
+
+export async function getCrawlRunSource(crawlRunSourceId: string): Promise<CrawlRunSourceRow | null> {
+  const { data, error } = await supabaseAdmin()
+    .from('crawl_run_sources')
+    .select('*')
+    .eq('id', crawlRunSourceId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export type StoredObservation = Pick<
+  Database['public']['Tables']['listing_observations']['Row'],
+  'id' | 'listing_id' | 'normalized'
+>;
+
+export async function findObservation(
+  crawlRunSourceId: string,
+  pageUrl: string,
+): Promise<StoredObservation | null> {
+  const { data, error } = await supabaseAdmin()
+    .from('listing_observations')
+    .select('id, listing_id, normalized')
+    .eq('crawl_run_source_id', crawlRunSourceId)
+    .eq('page_url', pageUrl)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+/** Fails run sources still queued or running since before the cutoff, and returns their run IDs. */
+export async function failTimedOutCrawlRunSources(startedBefore: string): Promise<string[]> {
+  const { data, error } = await supabaseAdmin()
+    .from('crawl_run_sources')
+    .update({ status: 'failed', error: 'The crawl timed out.', finished_at: new Date().toISOString() })
+    .in('status', ['queued', 'running'])
+    .lt('started_at', startedBefore)
+    .select('crawl_run_id');
+  if (error) {
+    throw error;
+  }
+
+  return [...new Set(data.map((row) => row.crawl_run_id))];
+}
+
+export async function deactivateStaleListings(sourceId: string): Promise<number> {
+  const { data, error } = await supabaseAdmin().rpc('deactivate_stale_listings', {
+    p_source_id: sourceId,
+  });
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}

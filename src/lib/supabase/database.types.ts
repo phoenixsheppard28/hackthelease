@@ -288,6 +288,10 @@ export type Database = {
           source_id: string
         }[]
       }
+      deactivate_stale_listings: {
+        Args: { p_source_id: string }
+        Returns: number
+      }
       increment_crawl_run_source_counts: {
         Args: {
           p_crawl_run_source_id: string
