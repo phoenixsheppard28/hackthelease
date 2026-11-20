@@ -19,8 +19,10 @@ export async function startCrawl(source: SourceRow, crawlRunSourceId: string): P
       url: source.inventory_url,
       limit: crawlPageLimit,
       crawlEntireDomain: true,
+      ignoreQueryParameters: true,
       ...(source.listing_patterns.length > 0 && { includePaths: source.listing_patterns }),
       scrapeOptions: {
+        waitFor: 1500,
         formats: [{ type: 'json', schema: pageExtractionJsonSchema, prompt: pageExtractionPrompt }],
       },
       webhook: {

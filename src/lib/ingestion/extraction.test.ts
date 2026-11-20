@@ -49,6 +49,47 @@ describe('page extraction schema', () => {
     expect(result.kind === 'listing' && result.listing.amenities).toEqual({ laundry: true, parking: null });
   });
 
+  it('marks conflicting amenity observations as unknown', () => {
+    const result = listingFromExtraction(
+      {
+        isListingPage: true,
+        listing: {
+          ...extractedListing,
+          amenities: [
+            { name: 'Parking', available: true },
+            { name: 'parking', available: false },
+          ],
+        },
+      },
+      pageUrl,
+      fetchedAt,
+    );
+
+    expect(result.kind === 'listing' && result.listing.amenities).toEqual({ parking: null });
+  });
+
+  it('skips a listing outside the Ann Arbor pilot area', () => {
+    const result = listingFromExtraction(
+      { isListingPage: true, listing: { ...extractedListing, address: '1162 Peabody Avenue, Memphis, TN' } },
+      pageUrl,
+      fetchedAt,
+    );
+
+    expect(result).toEqual({ kind: 'not_listing' });
+  });
+
+  it('normalizes availability words returned by Firecrawl', () => {
+    const availableNow = listingFromExtraction(
+      { isListingPage: true, listing: { ...extractedListing, availableFrom: 'now' } }, pageUrl, fetchedAt,
+    );
+    const missing = listingFromExtraction(
+      { isListingPage: true, listing: { ...extractedListing, availableFrom: 'null' } }, pageUrl, fetchedAt,
+    );
+
+    expect(availableNow.kind === 'listing' && availableNow.listing.availableFrom).toBe('2026-11-19');
+    expect(missing.kind === 'listing' && missing.listing.availableFrom).toBeNull();
+  });
+
   it('drops a malformed contact email instead of rejecting the page', () => {
     const result = listingFromExtraction(
       {

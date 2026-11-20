@@ -87,6 +87,10 @@ export async function processFirecrawlEvent(
 
   switch (event.data.type) {
     case 'crawl.page': {
+      if (runSource.status === 'failed') {
+        return { status: 'duplicate' };
+      }
+
       const pages = FirecrawlPagesSchema.safeParse(event.data.success ? event.data.data : []);
       return pages.success ? processPages(runSource, pages.data) : { status: 'invalid' };
     }

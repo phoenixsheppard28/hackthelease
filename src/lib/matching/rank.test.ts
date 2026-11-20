@@ -192,4 +192,15 @@ describe('rankListings priority weights', () => {
     expect(results.map((result) => result.listingId)).toEqual(['demo-aaa', 'demo-oxford-1']);
     expect(results[0]).toMatchObject({ isDemo: true, sourceUrls: ['https://example.com/demo/oxford-1'] });
   });
+
+  it('returns the listing details needed to explain a result', () => {
+    const [result] = rankListings(baseProfile, [rankable(oxford)]);
+
+    expect(result).toMatchObject({
+      address: oxford.address,
+      unit: oxford.unit,
+      rentBasis: oxford.rentBasis,
+      sourceFetchedAt: oxford.sources[0].fetchedAt,
+    });
+  });
 });

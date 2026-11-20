@@ -197,6 +197,11 @@ function matchListing(
 
   return {
     listingId: listing.id,
+    address: listing.address,
+    unit: listing.unit,
+    rentBasis: listing.rentBasis,
+    sourceFetchedAt: listing.sources.reduce((latest, source) =>
+      Date.parse(source.fetchedAt) > Date.parse(latest) ? source.fetchedAt : latest, listing.sources[0].fetchedAt),
     score: clamp01(score),
     componentScores: { ...scores, commute: null },
     firmChecks: checks,

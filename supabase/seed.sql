@@ -19,6 +19,12 @@ values
   ('The Haven of Ann Arbor', 'https://www.havenofannarbor.com/floorplans/', array['www.havenofannarbor.com'])
 on conflict (inventory_url) do nothing;
 
+update public.sources set listing_patterns = array['^/searchlisting$', '^/apartments/mi/ann-arbor/']
+where inventory_url = 'https://residential.oxfordcompanies.com/searchlisting';
+
+update public.sources set listing_patterns = array['^/8f47a0401c/l$', '^/l/.+-ann-arbor-mi-']
+where inventory_url = 'https://showmojo.com/8f47a0401c/l';
+
 -- Demo data: synthetic fixture listings from src/lib/fixtures/listings.ts, marked with is_demo.
 -- Their merge keys use the source ID "demo" because no crawled source owns them.
 -- searchable_text must match listingToRow in src/lib/supabase/listing-rows.ts.

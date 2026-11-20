@@ -66,6 +66,10 @@ describe('shared contracts', () => {
     const { MatchResultSchema, CrawlRunStatusSchema } = await import('./housing');
     const match = {
       listingId: demoListings[0].id,
+      address: demoListings[0].address,
+      unit: demoListings[0].unit,
+      rentBasis: demoListings[0].rentBasis,
+      sourceFetchedAt: demoListings[0].sources[0].fetchedAt,
       score: 0.8,
       componentScores: { affordability: 0.9, amenities: 0.5, lifestyle: 0.7, commute: null },
       firmChecks: { budget: 'pass' },

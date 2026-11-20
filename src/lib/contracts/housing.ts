@@ -71,6 +71,10 @@ const firmCheckSchema = z.enum(['pass', 'fail', 'unknown']);
 
 export const MatchResultSchema = z.object({
   listingId: z.string().min(1),
+  address: z.string().min(1),
+  unit: z.string().nullable(),
+  rentBasis: RentBasisSchema,
+  sourceFetchedAt: z.iso.datetime({ offset: true }),
   score: scoreSchema,
   componentScores: z.object({
     affordability: scoreSchema.nullable(),

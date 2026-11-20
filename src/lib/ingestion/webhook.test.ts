@@ -136,6 +136,14 @@ describe('processFirecrawlEvent input checks', () => {
 });
 
 describe('processFirecrawlEvent page events', () => {
+  it('ignores page events after the run source failed', async () => {
+    vi.mocked(crawlRuns.getCrawlRunSource).mockResolvedValue({ ...runSourceRow, status: 'failed' });
+    const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });
+
+    expect(await processFirecrawlEvent(body, sign(body))).toEqual({ status: 'duplicate' });
+    expect(crawlRuns.storeObservation).not.toHaveBeenCalled();
+  });
+
   it('stores the observation, upserts the listing with the source id, and counts once', async () => {
     vi.mocked(crawlRuns.storeObservation).mockResolvedValue('observation-1');
     const body = pageEvent('https://example.com/a', { isListingPage: true, listing: extractedListing });

@@ -33,6 +33,7 @@ export const pageExtractionJsonSchema = z.toJSONSchema(PageExtractionSchema);
 
 export const pageExtractionPrompt =
   'Extract the rental listing on this page. Use null for any value the page does not state. ' +
+  'Use YYYY-MM-DD for availableFrom and null if no date is stated. ' +
   'Set rentBasis to per_person or per_unit only when the page says so.';
 
 export type ExtractionResult =
@@ -54,10 +55,27 @@ export function listingFromExtraction(
     return { kind: 'not_listing' };
   }
 
+  if (!/\bAnn Arbor,\s*MI\b/i.test(page.data.listing.address)) {
+    return { kind: 'not_listing' };
+  }
+
   const { amenities, contact, ...fields } = page.data.listing;
+  const availability = fields.availableFrom?.trim();
+  const availableFrom = /^available now$|^now$/i.test(availability ?? '')
+    ? fetchedAt.slice(0, 10)
+    : !availability || /^null$/i.test(availability) ? null : availability;
+  const amenityMap: Record<string, boolean | null> = {};
+  for (const { name, available } of amenities) {
+    const key = name.trim().toLowerCase();
+    if (!key) continue;
+
+    amenityMap[key] = key in amenityMap && amenityMap[key] !== available ? null : available;
+  }
+
   const listing = ListingSchema.safeParse({
     ...fields,
-    amenities: Object.fromEntries(amenities.map(({ name, available }) => [name, available])),
+    availableFrom,
+    amenities: amenityMap,
     contact: contact && {
       name: contact.name || null,
       email: z.email().safeParse(contact.email).success ? contact.email : null,
