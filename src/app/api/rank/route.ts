@@ -1,8 +1,10 @@
+import { z } from 'zod';
 import { HousingProfileSchema } from '@/lib/contracts/housing';
 import { rankProfile } from '@/lib/matching/rank-profile';
 
 const RankRequestSchema = HousingProfileSchema.extend({
   lifestyleText: HousingProfileSchema.shape.lifestyleText.max(2000),
+  preferredAmenities: z.array(z.string().max(64)).max(20),
 });
 
 export async function POST(request: Request) {
@@ -11,5 +13,5 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid housing profile.' }, { status: 400 });
   }
 
-  return Response.json({ matches: await rankProfile(profile.data) });
+  return Response.json(await rankProfile(profile.data));
 }

@@ -178,7 +178,7 @@ describe('processFirecrawlEvent page events', () => {
     const result = await processFirecrawlEvent(body, sign(body));
 
     expect(result).toEqual({ status: 'processed' });
-    expect(consoleError).toHaveBeenCalledWith('Listing embedding failed', expect.any(Error));
+    expect(consoleError).toHaveBeenCalledWith('Listing embedding failed: OpenAI is down');
     consoleError.mockRestore();
   });
 

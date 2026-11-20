@@ -77,6 +77,23 @@ describe('rankListings per-person monthly cost', () => {
     expect(result.componentScores.affordability).toBeCloseTo(1 - 1150 / 2400);
   });
 
+  it('does not confirm the budget when the rent range straddles it', () => {
+    const [result] = rankOne({ budgetMonthlyPerPerson: 1000 }, { rentMin: 900, rentMax: 1400 });
+
+    expect(result.firmChecks.budget).toBe('unknown');
+    expect(result.verificationFlags).toEqual(
+      expect.arrayContaining(['Rent range exceeds budget', 'Needs verification: budget']),
+    );
+    expect(result.supportingFacts).toContain('$900–$1400 per person per month');
+    expect(result.componentScores.affordability).toBeCloseTo(1 - 1400 / 2000);
+  });
+
+  it('passes a rent range that stays within the budget', () => {
+    const [result] = rankOne({ budgetMonthlyPerPerson: 1500 }, { rentMin: 900, rentMax: 1400 });
+
+    expect(result.firmChecks.budget).toBe('pass');
+  });
+
   it('fails when fees push the per-person cost over budget', () => {
     expect(rankOne({ budgetMonthlyPerPerson: 1000 }, { rentMin: 980, recurringFeesMonthly: 40 })).toEqual([]);
   });
@@ -164,6 +181,7 @@ describe('rankListings priority weights', () => {
 
     expect(result.componentScores.commute).toBeNull();
     expect(result.skippedPriorities).toEqual(['commute']);
+    expect(result.verificationFlags).not.toContain('Uncertain: amenities');
     expect(result.score).toBeCloseTo((0.3 * affordability + 0.2 * 1) / 0.5);
   });
 

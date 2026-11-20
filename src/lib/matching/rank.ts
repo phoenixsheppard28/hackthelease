@@ -7,6 +7,7 @@ export type RankableListing = {
 };
 
 type FirmCheck = 'pass' | 'fail' | 'unknown';
+type CostRange = { min: number; max: number };
 type SupportedPriority = 'affordability' | 'amenities' | 'lifestyle';
 
 const PRIORITY_WEIGHTS = [0.5, 0.3, 0.2];
@@ -39,7 +40,7 @@ export function cosineSimilarity(a: number[], b: number[]): number | null {
   return normA === 0 || normB === 0 ? null : dot / Math.sqrt(normA * normB);
 }
 
-function monthlyCostPerPerson(listing: Listing, roommateCount: number | null, flags: string[]): number | null {
+function monthlyCostPerPerson(listing: Listing, roommateCount: number | null, flags: string[]): CostRange | null {
   if (listing.rentMin === null) {
     flags.push('Rent unknown');
     return null;
@@ -53,30 +54,43 @@ function monthlyCostPerPerson(listing: Listing, roommateCount: number | null, fl
     return null;
   }
 
-  const rent = listing.rentBasis === 'per_unit' ? listing.rentMin / (1 + roommateCount!) : listing.rentMin;
+  const household = listing.rentBasis === 'per_unit' ? 1 + roommateCount! : 1;
   if (listing.recurringFeesMonthly === null) {
     flags.push('Recurring fees unknown');
   }
 
-  return rent + (listing.recurringFeesMonthly ?? 0);
+  const fees = listing.recurringFeesMonthly ?? 0;
+  return {
+    min: listing.rentMin / household + fees,
+    max: (listing.rentMax ?? listing.rentMin) / household + fees,
+  };
 }
 
-function budgetCheck(cost: number | null, feesKnown: boolean, budget: number): FirmCheck {
+function budgetCheck(cost: CostRange | null, feesKnown: boolean, budget: number, flags: string[]): FirmCheck {
   if (cost === null) {
     return 'unknown';
   }
-  if (cost > budget) {
+  if (cost.min > budget) {
     return 'fail';
+  }
+  if (cost.max > budget) {
+    flags.push('Rent range exceeds budget');
+    return 'unknown';
   }
 
   return feesKnown ? 'pass' : 'unknown';
 }
 
-function firmChecks(profile: HousingProfile, listing: Listing, cost: number | null): MatchResult['firmChecks'] {
+function firmChecks(
+  profile: HousingProfile,
+  listing: Listing,
+  cost: CostRange | null,
+  flags: string[],
+): MatchResult['firmChecks'] {
   const checks: MatchResult['firmChecks'] = {};
 
   if (profile.budgetMonthlyPerPerson !== null) {
-    checks.budget = budgetCheck(cost, listing.recurringFeesMonthly !== null, profile.budgetMonthlyPerPerson);
+    checks.budget = budgetCheck(cost, listing.recurringFeesMonthly !== null, profile.budgetMonthlyPerPerson, flags);
   }
   if (profile.minimumBeds !== null) {
     checks.beds = firmCheck(listing.beds === null ? null : listing.beds >= profile.minimumBeds);
@@ -91,12 +105,12 @@ function firmChecks(profile: HousingProfile, listing: Listing, cost: number | nu
   return checks;
 }
 
-function affordabilityScore(cost: number | null, budget: number | null): number | null {
+function affordabilityScore(cost: CostRange | null, budget: number | null): number | null {
   if (cost === null || budget === null) {
     return null;
   }
 
-  return cost === 0 ? 1 : clamp01(1 - cost / (2 * budget));
+  return cost.max === 0 ? 1 : clamp01(1 - cost.max / (2 * budget));
 }
 
 function amenitiesScore(preferred: string[], amenities: Listing['amenities'], flags: string[]): number | null {
@@ -124,13 +138,19 @@ function lifestyleScore(profileEmbedding: number[] | null, listingEmbedding: num
   return similarity === null ? null : clamp01((similarity + 1) / 2);
 }
 
-function supportingFacts(listing: Listing, cost: number | null): string[] {
+function costFact({ min, max }: CostRange): string {
+  const [low, high] = [Math.round(min), Math.round(max)];
+
+  return low === high ? `$${low} per person per month` : `$${low}–$${high} per person per month`;
+}
+
+function supportingFacts(listing: Listing, cost: CostRange | null): string[] {
   const presentAmenities = Object.entries(listing.amenities)
     .filter(([, present]) => present === true)
     .map(([name]) => name);
 
   return [
-    cost !== null && `$${Math.round(cost)} per person per month`,
+    cost !== null && costFact(cost),
     listing.beds !== null && `${listing.beds} bedrooms`,
     listing.availableFrom !== null && `Available from ${listing.availableFrom}`,
     presentAmenities.length > 0 && `Amenities: ${presentAmenities.join(', ')}`,
@@ -145,7 +165,7 @@ function matchListing(
 ): MatchResult | null {
   const flags: string[] = [];
   const cost = monthlyCostPerPerson(listing, profile.roommateCount, flags);
-  const checks = firmChecks(profile, listing, cost);
+  const checks = firmChecks(profile, listing, cost, flags);
   if (Object.values(checks).includes('fail')) {
     return null;
   }
@@ -163,7 +183,7 @@ function matchListing(
   };
   const scores = {} as Record<SupportedPriority, number>;
   for (const priority of Object.keys(rawScores) as SupportedPriority[]) {
-    if (rawScores[priority] === null) {
+    if (rawScores[priority] === null && profile.priorities.includes(priority)) {
       flags.push(`Uncertain: ${priority}`);
     }
     scores[priority] = rawScores[priority] ?? NEUTRAL_SCORE;

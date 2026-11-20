@@ -2,6 +2,8 @@ import "server-only";
 import { z } from "zod";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
+const EMBEDDING_DIMENSIONS = 1536;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 const EmbeddingResponseSchema = z.object({
   data: z.array(
@@ -22,15 +24,39 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
+
   if (!response.ok) {
     throw new Error(
       `OpenAI embeddings request failed with status ${response.status}.`,
     );
   }
 
-  const { data } = EmbeddingResponseSchema.parse(await response.json());
-  return data
-    .toSorted((a, b) => a.index - b.index)
-    .map(({ embedding }) => embedding);
+  const parsed = EmbeddingResponseSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new Error("OpenAI embeddings response has an unexpected shape.");
+  }
+
+  const mismatch = new Error(
+    "OpenAI embeddings response does not match the request.",
+  );
+  if (parsed.data.data.length !== texts.length) {
+    throw mismatch;
+  }
+
+  const embeddings: number[][] = [];
+  for (const { index, embedding } of parsed.data.data) {
+    if (
+      index < 0 ||
+      index >= texts.length ||
+      embeddings[index] ||
+      embedding.length !== EMBEDDING_DIMENSIONS
+    ) {
+      throw mismatch;
+    }
+    embeddings[index] = embedding;
+  }
+
+  return embeddings;
 }

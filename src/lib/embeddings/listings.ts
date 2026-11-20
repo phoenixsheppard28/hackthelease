@@ -1,18 +1,27 @@
-import 'server-only';
-import { saveListingEmbedding, type StoredListing } from '../supabase/listings';
-import { embedTexts } from './openai';
+import "server-only";
+import { saveListingEmbedding, type StoredListing } from "../supabase/listings";
+import { embedTexts } from "./openai";
 
-export async function embedMissingListings(listings: StoredListing[]): Promise<StoredListing[]> {
+const EMBEDDING_BATCH_SIZE = 100;
+
+export async function embedMissingListings(
+  listings: StoredListing[],
+): Promise<void> {
   const missing = listings.filter((stored) => stored.embedding === null);
-  if (missing.length === 0) {
-    return listings;
+
+  for (let start = 0; start < missing.length; start += EMBEDDING_BATCH_SIZE) {
+    const batch = missing.slice(start, start + EMBEDDING_BATCH_SIZE);
+    const embeddings = await embedTexts(
+      batch.map((stored) => stored.searchableText),
+    );
+    await Promise.all(
+      batch.map((stored, index) =>
+        saveListingEmbedding(
+          stored.listing.id,
+          stored.textHash,
+          embeddings[index],
+        ),
+      ),
+    );
   }
-
-  const embeddings = await embedTexts(missing.map((stored) => stored.searchableText));
-  const embeddingById = new Map(missing.map((stored, index) => [stored.listing.id, embeddings[index]]));
-  await Promise.all(
-    missing.map((stored) => saveListingEmbedding(stored.listing.id, stored.textHash, embeddingById.get(stored.listing.id)!)),
-  );
-
-  return listings.map((stored) => ({ ...stored, embedding: stored.embedding ?? embeddingById.get(stored.listing.id)! }));
 }

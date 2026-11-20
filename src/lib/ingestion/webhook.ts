@@ -155,7 +155,7 @@ async function embedListingSafely(listingId: string): Promise<void> {
   try {
     await embedMissingListings(await listUnembeddedListings([listingId]));
   } catch (error) {
-    console.error('Listing embedding failed', error);
+    console.error(`Listing embedding failed: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
 }
 
