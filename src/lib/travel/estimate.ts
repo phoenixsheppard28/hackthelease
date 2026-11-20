@@ -33,6 +33,7 @@ async function computeRoute(
 ): Promise<TravelRoute> {
   const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
     method: 'POST',
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
@@ -84,10 +85,11 @@ export async function estimateTravel(
   destination: string,
   apiKey: string,
   departureTime?: string,
+  mode: 'all' | 'bus' = 'all',
 ): Promise<TravelEstimates> {
   const [walking, driving, bus] = await Promise.all([
-    computeRoute(origin, destination, 'WALK', apiKey, departureTime),
-    computeRoute(origin, destination, 'DRIVE', apiKey, departureTime),
+    mode === 'all' ? computeRoute(origin, destination, 'WALK', apiKey, departureTime) : null,
+    mode === 'all' ? computeRoute(origin, destination, 'DRIVE', apiKey, departureTime) : null,
     computeRoute(origin, destination, 'TRANSIT', apiKey, departureTime),
   ]);
 

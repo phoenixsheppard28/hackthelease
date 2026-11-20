@@ -6,6 +6,7 @@ const TravelRequestSchema = z.object({
   origin: z.string().trim().min(5).max(200),
   destination: z.string().trim().min(5).max(200),
   departureTime: z.iso.datetime({ offset: true }).optional(),
+  mode: z.enum(['all', 'bus']).default('all'),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const routes = await estimateTravel(body.data.origin, body.data.destination, apiKey, body.data.departureTime);
+    const routes = await estimateTravel(body.data.origin, body.data.destination, apiKey, body.data.departureTime, body.data.mode);
 
     return Response.json({
       origin: body.data.origin,
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
       routes,
       attribution: 'Google Maps',
       walkingWarning: 'Walking routes may not include all sidewalks or pedestrian paths.',
-    });
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Travel estimate failed:', error);
     return Response.json({ error: 'Travel estimates are unavailable.' }, { status: 502 });

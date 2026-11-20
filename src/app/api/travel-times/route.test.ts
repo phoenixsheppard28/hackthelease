@@ -20,6 +20,18 @@ afterEach(() => {
 });
 
 describe('POST /api/travel-times', () => {
+  it('fetches only transit for an automatic bus lookup', async () => {
+    vi.stubEnv('GOOGLE_MAPS_API_KEY', 'private-test-key');
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ routes: [{ duration: '1020s', distanceMeters: 4200,
+      legs: [{ steps: [{ transitDetails: { transitLine: { vehicle: { type: 'BUS' } } } }] }],
+    }] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const response = await POST(request({ ...addresses, mode: 'bus' }));
+    expect((await response.json()).routes).toEqual({ walking: null, driving: null, bus: { durationMinutes: 17, distanceMeters: 4200 } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ travelMode: 'TRANSIT', transitPreferences: { allowedTravelModes: ['BUS'] } });
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+  });
   it('rejects invalid addresses before calling Google', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

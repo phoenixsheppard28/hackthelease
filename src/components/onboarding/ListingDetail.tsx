@@ -8,7 +8,8 @@ import { matchesHref, type BrowseContext } from "@/lib/matching/browse-context";
 import { formatMoney, rentText, rentBasisText, type ListingMatchesResponse } from "@/lib/contracts/listing-match";
 import { requiredBedrooms } from '@/lib/contracts/housing-profile';
 import { calendarRouteName, locationIncomplete, reweightMatches } from '@/lib/matching/location-score';
-import { walkingStatusText } from '@/lib/travel/types';
+import { destinations as campusDestinations } from '@/lib/travel/destinations';
+import { DestinationTime } from './DestinationTime';
 import { useListingEvidence } from './useListingEvidence';
 import { Icon } from "./Icon";
 import { TravelTimes } from "./TravelTimes";
@@ -54,8 +55,8 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
   const home = groupId ? listing.data?.matches[0] : reweightMatches(listing.data?.matches ?? [], weights)[0];
   const personalDestinations = personalListing.data?.matches.find(item => item.id === listingId)?.destinations ?? [];
   const destinations = [
-    ...profile.hubs.map(name => ({ name, label: name, count: null as number | null })),
-    ...profile.calendarDestinations.map(place => ({ name: calendarRouteName(place.name), label: place.name, count: place.count })),
+    ...profile.hubs.map(name => ({ name, label: name, count: null as number | null, address: campusDestinations[name].address })),
+    ...profile.calendarDestinations.map(place => ({ name: calendarRouteName(place.name), label: place.name, count: place.count, address: place.address })),
   ];
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -124,20 +125,17 @@ export function ListingDetail({ listingId, profileId, context }: { listingId: st
           </div>
           <ListingAmenities key={home.id} features={home.features} />
           <section className={styles.places}><h2>Your places, from here</h2>
-            {groupId && <p className={styles.footnote}>Walking times to your chosen and approved Calendar places. These are personal estimates; group scores do not yet include location.</p>}
-            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{destinations.map(({ name, label, count }) => {
+            {groupId && <p className={styles.footnote}>Travel times to your chosen and approved Calendar places. These are personal estimates; group scores do not yet include location.</p>}
+            <div className={styles.placeGrid} aria-busy={personalListing.isPending}>{destinations.map(({ name, label, count, address }) => {
               const place = personalDestinations.find(item => item.name === name);
               const limit = profile.walk[name];
-              const available = place?.status === 'ok' && place.minutes !== null;
               return <div key={name}><p>{label}</p>
                 {count !== null && <p className={styles.calendarOrigin}>Calendar · {count} scheduled {count === 1 ? 'visit' : 'visits'} in your imported schedule</p>}
-                <strong>{available ? `${place.minutes} min` : personalListing.isPending ? 'Checking…' : 'Not available'}</strong>
-                <p>{available ? `walk${place.distanceMeters !== null ? ` · ${(place.distanceMeters / 1000).toFixed(1)} km` : ''}` : personalListing.isPending ? 'Finding a walking route' : walkingStatusText(place?.status ?? 'unavailable')}</p>
-                <small>{limit === undefined ? 'No walking limit set' : !available ? `Your preference: ${limit} min` : place.minutes! <= limit ? `Within your ${limit} min preference` : `${place.minutes! - limit} min over your ${limit} min preference`}</small>
+                <DestinationTime origin={home.address} destination={address} place={place} loading={personalListing.isPending} limit={limit} />
               </div>;
             })}</div>
             {personalListing.isError && <p role="alert">Couldn’t load walking times. <button onClick={() => personalListing.refetch()}>Retry walking times</button></p>}
-            <p className={styles.footnote}>Walking estimates: Google Maps. Routes may not include all sidewalks or pedestrian paths. Times are to the building; allow extra time for entry, weather, and accessibility needs.</p>
+            <p className={styles.footnote}>Estimates: Google Maps. Walks over 30 minutes show bus times when available. Bus times depend on current service. Walking routes may not include all sidewalks or pedestrian paths. Allow extra time for building entry, weather, and accessibility needs.</p>
             <TravelTimes key={home.id} origin={home.address} />
           </section>
         </section>
