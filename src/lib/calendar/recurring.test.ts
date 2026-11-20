@@ -1,6 +1,15 @@
 import { expect, it } from "vitest";
 import { analyzeCalendarPlaces, frequentCalendarPlaces } from "./recurring";
 
+it('passes title-only building hints to classification but still excludes virtual events', () => {
+  const timed = { start: { dateTime: '2026-11-17T10:00:00Z' } };
+  expect(frequentCalendarPlaces([
+    { ...timed, summary: 'Leinweber 2421' },
+    { ...timed, summary: 'Leinweber 2421', location: 'Zoom' },
+    { ...timed, summary: 'Virtual study group' },
+  ])).toEqual([{ title: 'Leinweber 2421', location: '', count: 1 }]);
+});
+
 it("counts timed visits across series and one-off events without a 20-visit cutoff", () => {
   const events = [
     ...Array.from({ length: 20 }, (_, index) => ({ recurringEventId: "class", summary: "Chemistry", location: "Chem Building", start: { dateTime: `2027-01-${String(index + 1).padStart(2, "0")}T10:00:00Z` } })),

@@ -773,7 +773,7 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                   {calendar.data?.message && <p role="status" className={styles.status}>{calendar.data.message}</p>}
                   {calendar.data?.scan && <div className={styles.status} role="status">
                     <p>Checked {calendar.data.scan.eventsRead} events across {calendar.data.scan.calendarsRead} calendars in the past 30 days.</p>
-                    {calendar.data.scan.missingLocation > 0 && <p>{calendar.data.scan.missingLocation} timed events had no Location field. Add the building or street address in Google Calendar, then scan again.</p>}
+                    {calendar.data.scan.missingLocation > 0 && <p>Skipped {calendar.data.scan.missingLocation} events without an identifiable physical place in their title or location.</p>}
                     {(calendar.data.scan.allDay > 0 || calendar.data.scan.online > 0 || calendar.data.scan.excluded > 0) && <p>Skipped {calendar.data.scan.allDay} all-day, {calendar.data.scan.online} online, and {calendar.data.scan.excluded} canceled or declined events.</p>}
                     {calendar.data.scan.calendarsFailed > 0 && <p role="alert">Could not read {calendar.data.scan.calendarsFailed} calendars. These results are incomplete.</p>}
                   </div>}
@@ -787,7 +787,7 @@ export function Onboarding({ initialProfile, initialHome = false, initialGroupOp
                     </p>
                   )}
                   <div className={styles.calendarLocations}>
-                    {calendarPlaces.length > 0 && <p className={styles.status}>{calendar.data?.scan ? `Your top ${calendarPlaces.length} places by scheduled visits in the past 30 days.` : "Your saved Calendar places."} Confirm the names and addresses, or exclude any you don’t want included.</p>}
+                    {calendarPlaces.length > 0 && <p className={styles.status}>{calendar.data?.scan ? `Your top ${calendarPlaces.length} places by scheduled visits in the past 30 days.` : "Your saved Calendar places."} Buildings and addresses are filled from event titles and locations. Review them or exclude any you don’t want included.</p>}
                     {calendarPlaces.map((place, index) => (
                       <div key={index} className={styles.calendarPlace}>
                         <p className={styles.status}>{index + 1}. {place.count} scheduled {place.count === 1 ? 'visit' : 'visits'}</p>

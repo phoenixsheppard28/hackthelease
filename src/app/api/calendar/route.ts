@@ -20,7 +20,8 @@ export async function GET(request: Request) {
     const analyzed = analyzeCalendarPlaces(events);
     const places = await classifyPlaces(analyzed.places);
     return NextResponse.json({ available, connected: true, places: places.sort((a, b) => b.count - a.count).slice(0, 5),
-      scan: { ...scan, ...analyzed.diagnostics } }, { headers: { 'Cache-Control': 'no-store' } });
+      scan: { ...scan, ...analyzed.diagnostics, missingLocation: analyzed.diagnostics.missingLocation
+        + analyzed.places.reduce((sum, place) => sum + place.count, 0) - places.reduce((sum, place) => sum + place.count, 0) } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (error instanceof CalendarReadError && [401, 403].includes(error.status)) {
       return NextResponse.json({ available, connected: false, needsReconnect: true, places: [],

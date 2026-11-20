@@ -27,6 +27,19 @@ function mockCalendarFetch(fetchEvents: (url: string, options: RequestInit) => P
     : fetchEvents(url, options)));
 }
 
+it('imports a building from event titles without asking for an address and skips location-free tasks', async () => {
+  cookieValues.set('housing_calendar_token', 'google-token');
+  cookieValues.set('housing_calendar_owner', 'student-1');
+  const start = { dateTime: '2026-11-18T10:00:00Z' };
+  mockCalendarFetch(vi.fn().mockResolvedValue(Response.json({ items: [
+    { summary: 'Leinweber 2421', start }, { summary: 'Leinweber 1125', start },
+    { summary: 'study', start }, { summary: 'coffee chat', start },
+  ] })));
+  const data = await (await GET(new Request('http://localhost/api/calendar?review=1'))).json();
+  expect(data.places).toEqual([{ name: 'Leinweber Building', address: '2200 Hayward St, Ann Arbor, MI 48109', count: 2 }]);
+  expect(data.scan.missingLocation).toBe(2);
+});
+
 it("does not fetch Calendar events for another student", async () => {
   cookieValues.set("housing_calendar_token", "google-token");
   cookieValues.set("housing_calendar_owner", "student-2");
@@ -42,12 +55,12 @@ it("does not fetch Calendar events for another student", async () => {
 it("fetches events for the student who connected Calendar", async () => {
   cookieValues.set("housing_calendar_token", "google-token");
   cookieValues.set("housing_calendar_owner", "student-1");
-  const fetchEvents = vi.fn().mockResolvedValue(Response.json({ items: [{ location: "Campus", start: { dateTime: "2026-11-21T10:00:00Z" } }] }));
+  const fetchEvents = vi.fn().mockResolvedValue(Response.json({ items: [{ location: "Leinweber 2421", start: { dateTime: "2026-11-21T10:00:00Z" } }] }));
   mockCalendarFetch(fetchEvents);
 
   const response = await GET(new Request("http://localhost:8000/api/calendar?review=1"));
 
-  expect((await response.json()).places).toEqual([{ name: "Campus", address: "", count: 1 }]);
+  expect((await response.json()).places).toEqual([{ name: "Leinweber Building", address: "2200 Hayward St, Ann Arbor, MI 48109", count: 1 }]);
   expect(fetchEvents).toHaveBeenCalledWith(expect.stringContaining("googleapis.com/calendar"), expect.objectContaining({ headers: { Authorization: "Bearer google-token" } }));
 });
 
@@ -63,7 +76,7 @@ it("pages through the past 30 days and expands recurring visits", async () => {
   const response = await GET(new Request("http://localhost:8000/api/calendar?review=1"));
   const data = await response.json();
 
-  expect(data.places).toEqual([{ name: "101 College Ave, Ann Arbor, MI", address: "", count: 20 }]);
+  expect(data.places).toEqual([{ name: "101 College Ave, Ann Arbor, MI", address: "101 College Ave, Ann Arbor, MI", count: 20 }]);
   expect(fetchEvents).toHaveBeenCalledTimes(2);
   expect(fetchEvents.mock.calls[1][0]).toContain("pageToken=page-2");
   const query = new URL(fetchEvents.mock.calls[0][0]).searchParams;
@@ -76,7 +89,7 @@ it("returns the five most visited places in descending order", async () => {
   cookieValues.set("housing_calendar_token", "google-token");
   cookieValues.set("housing_calendar_owner", "student-1");
   const items = Array.from({ length: 7 }, (_, index) => Array.from({ length: index + 1 }, () => ({
-    location: `Campus place ${index}`, start: { dateTime: "2026-12-01T10:00:00Z" },
+    location: `${100 + index} Main St, Ann Arbor, MI`, start: { dateTime: "2026-12-01T10:00:00Z" },
   }))).flat();
   mockCalendarFetch(vi.fn().mockResolvedValue(Response.json({ items })));
   const data = await (await GET(new Request("http://localhost:8000/api/calendar?review=1"))).json();
@@ -86,7 +99,7 @@ it("returns the five most visited places in descending order", async () => {
 it("continues past five Calendar pages before counting visits", async () => {
   cookieValues.set("housing_calendar_token", "google-token");
   cookieValues.set("housing_calendar_owner", "student-1");
-  const instances = Array.from({ length: 20 }, (_, index) => ({ recurringEventId: "class", summary: "Class", location: "Chem Building", start: { dateTime: `2027-01-${String(index + 1).padStart(2, "0")}T10:00:00Z` } }));
+  const instances = Array.from({ length: 20 }, (_, index) => ({ recurringEventId: "class", summary: "Class", location: "Leinweber 2421", start: { dateTime: `2027-01-${String(index + 1).padStart(2, "0")}T10:00:00Z` } }));
   const fetchEvents = vi.fn()
     .mockResolvedValueOnce(Response.json({ items: instances.slice(0, 10), nextPageToken: "2" }))
     .mockResolvedValueOnce(Response.json({ items: [], nextPageToken: "3" }))
@@ -124,14 +137,14 @@ it("reads course calendars on later calendar-list pages, not just primary", asyn
       ? { items: [{ id: "courses@example.com" }] }
       : { items: [{ id: "primary" }], nextPageToken: "more-calendars" });
     if (parsed.pathname.includes("courses%40example.com")) return Response.json({ items: [
-      { iCalUID: "chem-1", summary: "CHEM 130", location: "Chemistry Building", start: { dateTime: "2026-11-18T10:00:00Z" } },
-      { iCalUID: "chem-2", summary: "CHEM 130", location: "Chemistry Building", start: { dateTime: "2026-11-19T10:00:00Z" } },
+      { iCalUID: "chem-1", summary: "CHEM 130", location: "Leinweber 2421", start: { dateTime: "2026-11-18T10:00:00Z" } },
+      { iCalUID: "chem-2", summary: "CHEM 130", location: "Leinweber 2421", start: { dateTime: "2026-11-19T10:00:00Z" } },
     ] });
     return Response.json({ items: [{ summary: "No room yet", start: { dateTime: "2026-11-19T12:00:00Z" } }] });
   });
   vi.stubGlobal("fetch", fetchAll);
   const data = await (await GET(new Request("http://localhost/api/calendar?review=1"))).json();
-  expect(data.places).toEqual([{ name: "Chemistry Building", address: "", count: 2 }]);
+  expect(data.places).toEqual([{ name: "Leinweber Building", address: "2200 Hayward St, Ann Arbor, MI 48109", count: 2 }]);
   expect(data.scan).toMatchObject({ calendarsRead: 2, calendarsFailed: 0, eventsRead: 3, missingLocation: 1 });
   expect(fetchAll).toHaveBeenCalledTimes(4);
 });
@@ -159,7 +172,7 @@ it("labels partial calendar scans as incomplete", async () => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.includes("calendarList")) return Response.json({ items: [{ id: "primary" }, { id: "course" }] });
     if (url.includes("/course/")) return new Response(null, { status: 503 });
-    return Response.json({ items: [{ location: "Library", start: { dateTime: "2026-11-19T10:00:00Z" } }] });
+    return Response.json({ items: [{ location: "Hatcher Library", start: { dateTime: "2026-11-19T10:00:00Z" } }] });
   }));
   const data = await (await GET(new Request("http://localhost/api/calendar?review=1"))).json();
   expect(data.places).toHaveLength(1);

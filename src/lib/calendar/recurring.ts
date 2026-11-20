@@ -28,11 +28,12 @@ export function analyzeCalendarPlaces(events: CalendarInstance[]) {
   for (const event of unique.values()) {
     if (event.status === 'cancelled' || event.attendees?.some(attendee => attendee.self && attendee.responseStatus === 'declined')) { diagnostics.excluded++; continue; }
     if (!event.start?.dateTime) { diagnostics.allDay++; continue; }
-    const location = event.location?.trim();
-    if (!location) { diagnostics.missingLocation++; continue; }
-    if (/\b(online|remote|virtual|zoom)\b|meet\.google\.com|teams\.microsoft\.com/i.test(location)) { diagnostics.online++; continue; }
+    const location = event.location?.trim() || '';
+    const title = event.summary?.trim() || '';
+    if (!location && !title) { diagnostics.missingLocation++; continue; }
+    if (/\b(online|remote|virtual|zoom)\b|meet\.google\.com|teams\.microsoft\.com/i.test(location || title)) { diagnostics.online++; continue; }
 
-    const key = location.toLowerCase().replace(/\s+/g, " ");
+    const key = `${location ? 'location' : 'title'}:${(location || title).toLowerCase().replace(/\s+/g, ' ')}`;
     const current = places.get(key);
     places.set(key, current ? { ...current, count: current.count + 1 } : { title: event.summary?.trim() || "Calendar event", location, count: 1 });
   }
